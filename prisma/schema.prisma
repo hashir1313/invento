@@ -1,0 +1,140 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum PaymentStatus {
+  PENDING
+  PAYED
+  REFUNDED
+}
+
+enum PaymentOption {
+  CASH
+  EASYPAISA
+  JAZZCASH
+  BANK_TRANSFER
+}
+
+enum MaterialCategory {
+  OIL
+  SOLVENT
+  BOTTLE
+  CAP_SPRAY
+  STICKER
+  BOX
+  CARD
+  OTHER
+}
+
+enum UnitOfMeasure {
+  ML
+  GRAMS
+  PIECES
+}
+
+model Product {
+  id                  String   @id @default(uuid())
+  name                String
+  perfume_quantity_ml Int      // Volume in ml (e.g. 30, 50, 100)
+  impression          Boolean  @default(false)
+  impression_of       String?  // Name of designer scent if impression = true
+  price               Float    // Sale price in PKR
+  stock               Int      @default(0) // Ready-to-sell bottles
+  image_url           String?  // Vercel Blob WebP URL
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  sales               Sale[]
+  batch_productions   BatchProduction[]
+  recipe_items        BatchRecipeItem[]
+
+  @@map("products")
+}
+
+model Sale {
+  id             String        @id @default(uuid())
+  customer_name  String
+  date_purchased DateTime      @default(now())
+  product_id     String
+  quantity       Int           @default(1)
+  unit_price     Float
+  total_price    Float
+  payment_status PaymentStatus @default(PENDING)
+  payment_option PaymentOption @default(CASH)
+  review_given   Boolean       @default(false)
+  notes          String?
+
+  created_at     DateTime      @default(now())
+
+  product        Product       @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@index([payment_status])
+  @@index([payment_option])
+  @@index([date_purchased])
+  @@map("sales")
+}
+
+model RawMaterial {
+  id              String           @id @default(uuid())
+  name            String
+  category        MaterialCategory @default(OTHER)
+  unit_of_measure UnitOfMeasure    @default(PIECES)
+  current_stock   Float            @default(0) // Remaining ml/grams/pcs
+  min_stock_alert Float            @default(10) // Threshold warning
+  cost_per_unit   Float            @default(0) // Avg cost per unit in PKR
+  created_at      DateTime         @default(now())
+  updated_at      DateTime         @updatedAt
+
+  restocks        RawMaterialRestock[]
+  recipe_items    BatchRecipeItem[]
+
+  @@map("raw_materials")
+}
+
+model RawMaterialRestock {
+  id                String      @id @default(uuid())
+  raw_material_id   String
+  quantity_received Float
+  unit_cost         Float
+  total_cost        Float
+  supplier          String?
+  date_received     DateTime    @default(now())
+  notes             String?
+
+  created_at        DateTime    @default(now())
+
+  raw_material      RawMaterial @relation(fields: [raw_material_id], references: [id], onDelete: Cascade)
+
+  @@map("raw_material_restocks")
+}
+
+model BatchProduction {
+  id             String   @id @default(uuid())
+  product_id     String
+  batch_quantity Int      // Number of finished bottles produced
+  date_produced  DateTime @default(now())
+  notes          String?
+  created_at     DateTime @default(now())
+
+  product        Product  @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@map("batch_productions")
+}
+
+model BatchRecipeItem {
+  id                         String      @id @default(uuid())
+  product_id                 String
+  raw_material_id            String
+  quantity_required_per_unit Float       // e.g. 15ml oil per bottle
+
+  product                    Product     @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  raw_material               RawMaterial @relation(fields: [raw_material_id], references: [id], onDelete: Cascade)
+
+  @@unique([product_id, raw_material_id])
+  @@map("batch_recipe_items")
+}
