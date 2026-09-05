@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getProducts, createProduct, updateProductStock, deleteProduct } from "../actions";
+import { getProducts, createProduct, updateProduct, updateProductStock, deleteProduct } from "../actions";
 import { formatPKR } from "@/lib/utils";
 import { compressImageToWebP } from "@/lib/webp-compressor";
 import { 
@@ -9,6 +9,7 @@ import {
   Plus, 
   Upload, 
   Trash2, 
+  Pencil,
   Sparkles, 
   Layers, 
   Tag, 
@@ -21,6 +22,7 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // Form State
@@ -52,6 +54,25 @@ export default function ProductsPage() {
     }
   }
 
+  function openCreateModal() {
+    setEditingProductId(null);
+    resetForm();
+    setIsModalOpen(true);
+  }
+
+  function openEditModal(product: any) {
+    setEditingProductId(product.id);
+    setName(product.name);
+    setPerfumeQuantityMl(product.perfume_quantity_ml);
+    setImpression(product.impression);
+    setImpressionOf(product.impression_of || "");
+    setPrice(product.price);
+    setStock(product.stock);
+    setImageFile(null);
+    setImagePreview(product.image_url || null);
+    setIsModalOpen(true);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
@@ -60,44 +81,59 @@ export default function ProductsPage() {
     try {
       let imageUrl: string | undefined = undefined;
 
-      // If an image was selected, compress to WebP & upload
+      // If a new image file was selected, compress to WebP
       if (imageFile) {
         const webpBlob = await compressImageToWebP(imageFile);
-        
-        // Convert blob to base64 data URL for instant standalone/offline preview or direct storage
         const reader = new FileReader();
         const base64Promise = new Promise<string>((resolve) => {
           reader.onloadend = () => resolve(reader.result as string);
           reader.readAsDataURL(webpBlob);
         });
         imageUrl = await base64Promise;
+      } else if (editingProductId && imagePreview) {
+        // Retain existing image URL if not uploading a new file
+        imageUrl = imagePreview;
       }
 
-      const res = await createProduct({
-        name,
-        perfume_quantity_ml: Number(perfumeQuantityMl),
-        impression,
-        impression_of: impression ? impressionOf : undefined,
-        price: Number(price),
-        stock: Number(stock),
-        image_url: imageUrl,
-      });
+      let res;
+      if (editingProductId) {
+        res = await updateProduct(editingProductId, {
+          name,
+          perfume_quantity_ml: Number(perfumeQuantityMl),
+          impression,
+          impression_of: impression ? impressionOf : undefined,
+          price: Number(price),
+          stock: Number(stock),
+          image_url: imageUrl,
+        });
+      } else {
+        res = await createProduct({
+          name,
+          perfume_quantity_ml: Number(perfumeQuantityMl),
+          impression,
+          impression_of: impression ? impressionOf : undefined,
+          price: Number(price),
+          stock: Number(stock),
+          image_url: imageUrl,
+        });
+      }
 
       if (res.success) {
         setIsModalOpen(false);
         resetForm();
         loadProducts();
       } else {
-        alert(res.error || "Failed to create product");
+        alert(res.error || "Failed to save product");
       }
     } catch (err: any) {
-      alert("Error uploading or creating product: " + err?.message);
+      alert("Error saving product: " + err?.message);
     } finally {
       setSubmitting(false);
     }
   }
 
   function resetForm() {
+    setEditingProductId(null);
     setName("");
     setPerfumeQuantityMl(50);
     setImpression(false);
@@ -136,7 +172,7 @@ export default function ProductsPage() {
         </div>
 
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={openCreateModal}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/20 transition-all self-start sm:self-auto"
         >
           <Plus className="w-5 h-5" />
@@ -158,7 +194,7 @@ export default function ProductsPage() {
             Click the button below to add your first perfume product to the inventory.
           </p>
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={openCreateModal}
             className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 text-slate-950 font-bold text-sm"
           >
             <Plus className="w-4 h-4" />
@@ -241,7 +277,14 @@ export default function ProductsPage() {
                 </div>
 
                 {/* Card Actions */}
-                <div className="pt-2 flex justify-end">
+                <div className="pt-2 flex justify-end space-x-2">
+                  <button
+                    onClick={() => openEditModal(product)}
+                    className="text-xs text-amber-400 hover:text-amber-300 font-semibold flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-colors"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    <span>Edit</span>
+                  </button>
                   <button
                     onClick={() => handleDelete(product.id, product.name)}
                     className="text-xs text-rose-400 hover:text-rose-300 font-medium flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover:bg-rose-500/10 transition-colors"
@@ -256,14 +299,23 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {/* Add New Perfume Modal */}
+      {/* Add / Edit Perfume Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <Plus className="w-5 h-5 text-amber-400" />
-                <span>Add New Perfume Product</span>
+                {editingProductId ? (
+                  <>
+                    <Pencil className="w-5 h-5 text-amber-400" />
+                    <span>Edit Perfume Product</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-5 h-5 text-amber-400" />
+                    <span>Add New Perfume Product</span>
+                  </>
+                )}
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -321,10 +373,10 @@ export default function ProductsPage() {
                 </div>
               </div>
 
-              {/* Initial Stock */}
+              {/* Initial / Current Stock */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                  Initial Finished Bottle Stock *
+                  {editingProductId ? "Current Stock (Bottles) *" : "Initial Finished Bottle Stock *"}
                 </label>
                 <input
                   type="number"
@@ -382,11 +434,14 @@ export default function ProductsPage() {
                   />
                   <label htmlFor="perfume-img-upload" className="cursor-pointer flex flex-col items-center">
                     {imagePreview ? (
-                      <img
-                        src={imagePreview}
-                        alt="Preview"
-                        className="h-28 object-contain rounded-lg mb-2"
-                      />
+                      <div className="space-y-2">
+                        <img
+                          src={imagePreview}
+                          alt="Preview"
+                          className="h-28 object-contain rounded-lg mx-auto"
+                        />
+                        <span className="text-[11px] text-amber-400 font-semibold block">Click to replace image</span>
+                      </div>
                     ) : (
                       <>
                         <Upload className="w-8 h-8 text-slate-500 mb-1" />
@@ -412,7 +467,7 @@ export default function ProductsPage() {
                   disabled={submitting}
                   className="px-5 py-2 rounded-xl text-sm font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center gap-2 shadow-lg shadow-amber-500/20"
                 >
-                  {submitting ? "Saving..." : "Save Perfume"}
+                  {submitting ? "Saving..." : editingProductId ? "Update Perfume" : "Save Perfume"}
                 </button>
               </div>
             </form>

@@ -49,6 +49,44 @@ export async function createProduct(data: {
   }
 }
 
+export async function updateProduct(
+  id: string,
+  data: {
+    name: string;
+    perfume_quantity_ml: number;
+    impression: boolean;
+    impression_of?: string;
+    price: number;
+    stock: number;
+    image_url?: string;
+  }
+) {
+  try {
+    const updateData: any = {
+      name: data.name,
+      perfume_quantity_ml: Number(data.perfume_quantity_ml),
+      impression: Boolean(data.impression),
+      impression_of: data.impression_of || null,
+      price: Number(data.price),
+      stock: Number(data.stock),
+    };
+    if (data.image_url !== undefined) {
+      updateData.image_url = data.image_url;
+    }
+
+    const product = await prisma.product.update({
+      where: { id },
+      data: updateData,
+    });
+    revalidatePath("/products");
+    revalidatePath("/");
+    return { success: true, product };
+  } catch (error: any) {
+    console.error("Error updating product:", error);
+    return { success: false, error: error?.message || "Failed to update product" };
+  }
+}
+
 export async function updateProductStock(id: string, newStock: number) {
   try {
     const product = await prisma.product.update({
