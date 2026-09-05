@@ -282,6 +282,38 @@ export async function createRawMaterial(data: {
   }
 }
 
+export async function updateRawMaterial(
+  id: string,
+  data: {
+    name: string;
+    category: MaterialCategory;
+    unit_of_measure: UnitOfMeasure;
+    current_stock: number;
+    min_stock_alert: number;
+    cost_per_unit: number;
+  }
+) {
+  try {
+    const material = await prisma.rawMaterial.update({
+      where: { id },
+      data: {
+        name: data.name,
+        category: data.category,
+        unit_of_measure: data.unit_of_measure,
+        current_stock: Number(data.current_stock),
+        min_stock_alert: Number(data.min_stock_alert),
+        cost_per_unit: Number(data.cost_per_unit),
+      },
+    });
+    revalidatePath("/raw-materials");
+    revalidatePath("/");
+    return { success: true, material };
+  } catch (error: any) {
+    console.error("Error updating raw material:", error);
+    return { success: false, error: error?.message || "Failed to update raw material" };
+  }
+}
+
 export async function restockRawMaterial(data: {
   raw_material_id: string;
   quantity_received: number;

@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getRawMaterials, createRawMaterial, restockRawMaterial, deleteRawMaterial } from "../actions";
+import { getRawMaterials, createRawMaterial, updateRawMaterial, restockRawMaterial, deleteRawMaterial } from "../actions";
 import { formatPKR, formatDate, MATERIAL_CATEGORY_LABELS } from "@/lib/utils";
 import { 
   Boxes, 
   Plus, 
+  Pencil,
   AlertTriangle, 
   TrendingUp, 
   Trash2, 
@@ -25,10 +26,11 @@ export default function RawMaterialsPage() {
   // Modals
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
+  const [editingMaterialId, setEditingMaterialId] = useState<string | null>(null);
   const [selectedMaterialId, setSelectedMaterialId] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Add Form State
+  // Add/Edit Form State
   const [name, setName] = useState("");
   const [category, setCategory] = useState<MaterialCategory>("OIL");
   const [unitOfMeasure, setUnitOfMeasure] = useState<UnitOfMeasure>("ML");
@@ -56,28 +58,63 @@ export default function RawMaterialsPage() {
     setLoading(false);
   }
 
+  function openAddModal() {
+    setEditingMaterialId(null);
+    setName("");
+    setCategory("OIL");
+    setUnitOfMeasure("ML");
+    setCurrentStock(500);
+    setMinStockAlert(100);
+    setCostPerUnit(15);
+    setIsAddModalOpen(true);
+  }
+
+  function openEditModal(mat: any) {
+    setEditingMaterialId(mat.id);
+    setName(mat.name);
+    setCategory(mat.category);
+    setUnitOfMeasure(mat.unit_of_measure);
+    setCurrentStock(mat.current_stock);
+    setMinStockAlert(mat.min_stock_alert);
+    setCostPerUnit(mat.cost_per_unit);
+    setIsAddModalOpen(true);
+  }
+
   async function handleAddSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
 
     setSubmitting(true);
-    const res = await createRawMaterial({
-      name,
-      category,
-      unit_of_measure: unitOfMeasure,
-      current_stock: Number(currentStock),
-      min_stock_alert: Number(minStockAlert),
-      cost_per_unit: Number(costPerUnit),
-    });
+    let res;
+    if (editingMaterialId) {
+      res = await updateRawMaterial(editingMaterialId, {
+        name,
+        category,
+        unit_of_measure: unitOfMeasure,
+        current_stock: Number(currentStock),
+        min_stock_alert: Number(minStockAlert),
+        cost_per_unit: Number(costPerUnit),
+      });
+    } else {
+      res = await createRawMaterial({
+        name,
+        category,
+        unit_of_measure: unitOfMeasure,
+        current_stock: Number(currentStock),
+        min_stock_alert: Number(minStockAlert),
+        cost_per_unit: Number(costPerUnit),
+      });
+    }
 
     setSubmitting(false);
 
     if (res.success) {
       setIsAddModalOpen(false);
+      setEditingMaterialId(null);
       setName("");
       loadMaterials();
     } else {
-      alert(res.error || "Failed to add raw material");
+      alert(res.error || "Failed to save raw material");
     }
   }
 
@@ -140,7 +177,7 @@ export default function RawMaterialsPage() {
             <span>Got Supply (Restock)</span>
           </button>
           <button
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={openAddModal}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-sm border border-slate-700 transition-all"
           >
             <Plus className="w-4 h-4 text-amber-400" />
@@ -163,7 +200,7 @@ export default function RawMaterialsPage() {
             Add raw materials like fragrance oils, ethanol, bottles, boxes, and cards to track manufacturing stock.
           </p>
           <button
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={openAddModal}
             className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 text-slate-950 font-bold text-sm"
           >
             <Plus className="w-4 h-4" />
@@ -219,6 +256,13 @@ export default function RawMaterialsPage() {
                         >
                           <TrendingUp className="w-3.5 h-3.5" />
                           <span>Got Supply</span>
+                        </button>
+                        <button
+                          onClick={() => openEditModal(mat)}
+                          className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700 transition-colors inline-flex items-center gap-1"
+                        >
+                          <Pencil className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Edit</span>
                         </button>
                         <button
                           onClick={() => handleDelete(mat.id, mat.name)}
@@ -354,14 +398,23 @@ export default function RawMaterialsPage() {
         </div>
       )}
 
-      {/* Add New Material Modal */}
+      {/* Add / Edit Material Modal */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <Plus className="w-5 h-5 text-amber-400" />
-                <span>Add New Raw Material Item</span>
+                {editingMaterialId ? (
+                  <>
+                    <Pencil className="w-5 h-5 text-amber-400" />
+                    <span>Edit Raw Material Item</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-5 h-5 text-amber-400" />
+                    <span>Add New Raw Material Item</span>
+                  </>
+                )}
               </h3>
               <button
                 onClick={() => setIsAddModalOpen(false)}
@@ -427,10 +480,10 @@ export default function RawMaterialsPage() {
               </div>
 
               <div className="grid grid-cols-3 gap-3">
-                {/* Initial Stock */}
+                {/* Initial / Current Stock */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                    Initial Stock *
+                    Current Stock *
                   </label>
                   <input
                     type="number"
@@ -490,7 +543,7 @@ export default function RawMaterialsPage() {
                   disabled={submitting}
                   className="px-5 py-2 rounded-xl text-sm font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center gap-2 shadow-lg shadow-amber-500/20"
                 >
-                  {submitting ? "Saving..." : "Save Material"}
+                  {submitting ? "Saving..." : editingMaterialId ? "Update Material" : "Save Material"}
                 </button>
               </div>
             </form>
