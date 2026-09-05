@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate",
-    "seed": "prisma db seed"
+    "seed": "prisma db seed",
+    "create-user": "bun scripts/create-user.ts"
   },
   "prisma": {
     "seed": "bun prisma/seed.ts"

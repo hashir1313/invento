@@ -1,19 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { 
   LayoutDashboard, 
   Package, 
   ShoppingCart, 
   Boxes, 
   FlaskConical,
-  Sparkles
+  Sparkles,
+  LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  if (pathname === "/login") return null;
 
   const navItems = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -22,6 +26,12 @@ export default function Navbar() {
     { href: "/raw-materials", label: "Raw Materials", icon: Boxes },
     { href: "/batch-production", label: "Batch Production", icon: FlaskConical },
   ];
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
+  }
 
   return (
     <header className="sticky top-0 z-50 bg-slate-900 border-b border-slate-800 text-white shadow-md">
@@ -43,7 +53,7 @@ export default function Navbar() {
           </Link>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex space-x-1">
+          <nav className="hidden md:flex items-center space-x-1">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href;
@@ -63,12 +73,19 @@ export default function Navbar() {
                 </Link>
               );
             })}
+            <button
+              onClick={handleLogout}
+              className="flex items-center space-x-2 px-3 py-2 ml-2 rounded-lg text-sm font-medium text-slate-400 hover:text-red-400 hover:bg-slate-800/60 transition-all duration-150"
+              title="Sign out"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </nav>
         </div>
       </div>
 
       {/* Mobile Navigation Bar (Bottom Bar for easy smartphone use) */}
-      <nav className="md:hidden flex justify-around bg-slate-950/90 backdrop-blur-md border-t border-slate-800 py-2 fixed bottom-0 left-0 right-0 z-50">
+      <nav className="md:hidden flex justify-around items-center bg-slate-950/90 backdrop-blur-md border-t border-slate-800 py-2 fixed bottom-0 left-0 right-0 z-50">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
@@ -86,6 +103,14 @@ export default function Navbar() {
             </Link>
           );
         })}
+        <button
+          onClick={handleLogout}
+          className="flex flex-col items-center py-1 px-2 text-[11px] font-medium text-slate-400 hover:text-red-400 transition-colors"
+          title="Sign out"
+        >
+          <LogOut className="w-5 h-5 mb-0.5" />
+          <span>Logout</span>
+        </button>
       </nav>
     </header>
   );
