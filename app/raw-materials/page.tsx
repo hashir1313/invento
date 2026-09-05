@@ -1,8 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getRawMaterials, createRawMaterial, updateRawMaterial, restockRawMaterial, deleteRawMaterial } from "../actions";
-import { formatPKR, formatDate, MATERIAL_CATEGORY_LABELS } from "@/lib/utils";
+import { 
+  getRawMaterials, 
+  createRawMaterial, 
+  updateRawMaterial, 
+  restockRawMaterial, 
+  deleteRawMaterial 
+} from "../actions";
+import { formatPKR, MATERIAL_CATEGORY_LABELS } from "@/lib/utils";
 import { 
   Boxes, 
   Plus, 
@@ -10,12 +16,9 @@ import {
   AlertTriangle, 
   TrendingUp, 
   Trash2, 
-  Layers, 
   X,
-  PlusCircle,
-  Truck,
-  Droplets,
-  PackageCheck
+  ArrowLeft,
+  Settings2
 } from "lucide-react";
 import { MaterialCategory, UnitOfMeasure } from "@prisma/client";
 
@@ -23,9 +26,11 @@ export default function RawMaterialsPage() {
   const [materials, setMaterials] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Modals
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  // Modals State
+  const [isManageModalOpen, setIsManageModalOpen] = useState(false);
   const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
+  const [manageView, setManageView] = useState<"list" | "form">("list");
+  
   const [editingMaterialId, setEditingMaterialId] = useState<string | null>(null);
   const [selectedMaterialId, setSelectedMaterialId] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -58,7 +63,13 @@ export default function RawMaterialsPage() {
     setLoading(false);
   }
 
-  function openAddModal() {
+  function openManageModal() {
+    setManageView("list");
+    setEditingMaterialId(null);
+    setIsManageModalOpen(true);
+  }
+
+  function startAddNewMaterial() {
     setEditingMaterialId(null);
     setName("");
     setCategory("OIL");
@@ -66,10 +77,10 @@ export default function RawMaterialsPage() {
     setCurrentStock(500);
     setMinStockAlert(100);
     setCostPerUnit(15);
-    setIsAddModalOpen(true);
+    setManageView("form");
   }
 
-  function openEditModal(mat: any) {
+  function startEditMaterial(mat: any) {
     setEditingMaterialId(mat.id);
     setName(mat.name);
     setCategory(mat.category);
@@ -77,10 +88,10 @@ export default function RawMaterialsPage() {
     setCurrentStock(mat.current_stock);
     setMinStockAlert(mat.min_stock_alert);
     setCostPerUnit(mat.cost_per_unit);
-    setIsAddModalOpen(true);
+    setManageView("form");
   }
 
-  async function handleAddSubmit(e: React.FormEvent) {
+  async function handleAddOrEditSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
 
@@ -109,10 +120,10 @@ export default function RawMaterialsPage() {
     setSubmitting(false);
 
     if (res.success) {
-      setIsAddModalOpen(false);
       setEditingMaterialId(null);
       setName("");
-      loadMaterials();
+      await loadMaterials();
+      setManageView("list");
     } else {
       alert(res.error || "Failed to save raw material");
     }
@@ -176,12 +187,14 @@ export default function RawMaterialsPage() {
             <TrendingUp className="w-4 h-4" />
             <span>Got Supply (Restock)</span>
           </button>
+          
+          {/* Edit / Manage Materials Button */}
           <button
-            onClick={openAddModal}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-sm border border-slate-700 transition-all"
+            onClick={openManageModal}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-sm border border-slate-700 transition-all shadow-md"
           >
-            <Plus className="w-4 h-4 text-amber-400" />
-            <span>Add New Material</span>
+            <Pencil className="w-4 h-4 text-amber-400" />
+            <span>Edit Materials</span>
           </button>
         </div>
       </div>
@@ -200,11 +213,11 @@ export default function RawMaterialsPage() {
             Add raw materials like fragrance oils, ethanol, bottles, boxes, and cards to track manufacturing stock.
           </p>
           <button
-            onClick={openAddModal}
+            onClick={openManageModal}
             className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 text-slate-950 font-bold text-sm"
           >
-            <Plus className="w-4 h-4" />
-            Add First Material
+            <Pencil className="w-4 h-4" />
+            Manage Materials
           </button>
         </div>
       ) : (
@@ -258,15 +271,9 @@ export default function RawMaterialsPage() {
                           <span>Got Supply</span>
                         </button>
                         <button
-                          onClick={() => openEditModal(mat)}
-                          className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700 transition-colors inline-flex items-center gap-1"
-                        >
-                          <Pencil className="w-3.5 h-3.5 text-amber-400" />
-                          <span>Edit</span>
-                        </button>
-                        <button
                           onClick={() => handleDelete(mat.id, mat.name)}
                           className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-colors inline-block"
+                          title="Delete material"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -276,6 +283,261 @@ export default function RawMaterialsPage() {
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* MANAGE / EDIT MATERIALS MODAL */}
+      {isManageModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                {manageView === "form" && (
+                  <button
+                    onClick={() => setManageView("list")}
+                    className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+                    title="Back to Catalog List"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                  </button>
+                )}
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Boxes className="w-5 h-5 text-amber-400" />
+                    <span>
+                      {manageView === "list"
+                        ? "Manage Raw Materials Catalog"
+                        : editingMaterialId
+                        ? "Edit Raw Material Item"
+                        : "Add New Raw Material Item"}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {manageView === "list"
+                      ? "Add, edit, or delete raw material definitions."
+                      : "Fill in the material properties below."}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {manageView === "list" && (
+                  <button
+                    onClick={startAddNewMaterial}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-all"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add New Material</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => setIsManageModalOpen(false)}
+                  className="text-slate-400 hover:text-white p-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body: LIST VIEW */}
+            {manageView === "list" && (
+              <div className="space-y-4">
+                {materials.length === 0 ? (
+                  <div className="text-center py-10 border border-dashed border-slate-800 rounded-xl">
+                    <p className="text-slate-400 text-sm">No raw materials in catalog.</p>
+                    <button
+                      onClick={startAddNewMaterial}
+                      className="mt-3 px-4 py-2 bg-amber-500 text-slate-950 font-bold text-xs rounded-xl inline-flex items-center gap-1"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add First Material
+                    </button>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-800/80 border border-slate-800 rounded-xl overflow-hidden bg-slate-950">
+                    {materials.map((mat) => (
+                      <div
+                        key={mat.id}
+                        className="p-3.5 flex items-center justify-between hover:bg-slate-900/60 transition-colors"
+                      >
+                        <div>
+                          <p className="font-bold text-white text-sm">{mat.name}</p>
+                          <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
+                            <span>
+                              Category:{" "}
+                              <strong className="text-slate-300 font-medium">
+                                {MATERIAL_CATEGORY_LABELS[mat.category as keyof typeof MATERIAL_CATEGORY_LABELS] || mat.category}
+                              </strong>
+                            </span>
+                            <span>•</span>
+                            <span>
+                              Stock:{" "}
+                              <strong className="text-amber-300 font-semibold">
+                                {mat.current_stock} {mat.unit_of_measure}
+                              </strong>
+                            </span>
+                            <span>•</span>
+                            <span>
+                              Cost:{" "}
+                              <strong className="text-slate-300">
+                                {formatPKR(mat.cost_per_unit)} / {mat.unit_of_measure}
+                              </strong>
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Action buttons inside Manage Modal */}
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => startEditMaterial(mat)}
+                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 font-semibold text-xs rounded-lg border border-slate-700 flex items-center gap-1 transition-colors"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                            <span>Edit</span>
+                          </button>
+                          <button
+                            onClick={() => handleDelete(mat.id, mat.name)}
+                            className="p-1.5 text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                            title="Delete Material"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Modal Body: FORM VIEW (Add or Edit) */}
+            {manageView === "form" && (
+              <form onSubmit={handleAddOrEditSubmit} className="space-y-4">
+                {/* Material Name */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                    Material Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Vanilla Fragrance Oil, 50ml Glass Bottle, Logo Sticker"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Category */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                      Category *
+                    </label>
+                    <select
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value as MaterialCategory)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                    >
+                      <option value="OIL">Fragrance Oil</option>
+                      <option value="SOLVENT">Solvent / Ethanol</option>
+                      <option value="BOTTLE">Glass Bottle</option>
+                      <option value="CAP_SPRAY">Spray Atomizer / Cap</option>
+                      <option value="STICKER">Sticker / Label</option>
+                      <option value="BOX">Packaging Box</option>
+                      <option value="CARD">Thank You Card</option>
+                      <option value="OTHER">Other Material</option>
+                    </select>
+                  </div>
+
+                  {/* Unit of Measure */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                      Unit of Measure *
+                    </label>
+                    <select
+                      value={unitOfMeasure}
+                      onChange={(e) => setUnitOfMeasure(e.target.value as UnitOfMeasure)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                    >
+                      <option value="ML">Milliliters (ml)</option>
+                      <option value="PIECES">Pieces (pcs)</option>
+                      <option value="GRAMS">Grams (g)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  {/* Stock */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                      Current Stock *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      step="any"
+                      min="0"
+                      value={currentStock}
+                      onChange={(e) => setCurrentStock(Number(e.target.value))}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  {/* Min Alert */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                      Min Alert *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      step="any"
+                      min="0"
+                      value={minStockAlert}
+                      onChange={(e) => setMinStockAlert(Number(e.target.value))}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  {/* Cost per unit */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                      Cost / Unit (PKR) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      step="any"
+                      min="0"
+                      value={costPerUnit}
+                      onChange={(e) => setCostPerUnit(Number(e.target.value))}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Form Buttons */}
+                <div className="flex justify-end space-x-3 pt-3 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setManageView("list")}
+                    className="px-4 py-2 rounded-xl text-sm font-medium text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="px-5 py-2 rounded-xl text-sm font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center gap-2 shadow-lg shadow-amber-500/20"
+                  >
+                    {submitting ? "Saving..." : editingMaterialId ? "Update Material" : "Save Material"}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
@@ -391,159 +653,6 @@ export default function RawMaterialsPage() {
                   className="px-5 py-2 rounded-xl text-sm font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center gap-2 shadow-lg shadow-amber-500/20"
                 >
                   {submitting ? "Processing..." : "Confirm Restock Intake"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Add / Edit Material Modal */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                {editingMaterialId ? (
-                  <>
-                    <Pencil className="w-5 h-5 text-amber-400" />
-                    <span>Edit Raw Material Item</span>
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-5 h-5 text-amber-400" />
-                    <span>Add New Raw Material Item</span>
-                  </>
-                )}
-              </h3>
-              <button
-                onClick={() => setIsAddModalOpen(false)}
-                className="text-slate-400 hover:text-white p-1"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddSubmit} className="space-y-4">
-              {/* Material Name */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                  Material Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Vanilla Fragrance Oil, 50ml Glass Bottle, Logo Sticker"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                {/* Category */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                    Category *
-                  </label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value as MaterialCategory)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
-                  >
-                    <option value="OIL">Fragrance Oil</option>
-                    <option value="SOLVENT">Solvent / Ethanol</option>
-                    <option value="BOTTLE">Glass Bottle</option>
-                    <option value="CAP_SPRAY">Spray Atomizer / Cap</option>
-                    <option value="STICKER">Sticker / Label</option>
-                    <option value="BOX">Packaging Box</option>
-                    <option value="CARD">Thank You Card</option>
-                    <option value="OTHER">Other Material</option>
-                  </select>
-                </div>
-
-                {/* Unit of Measure */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                    Unit of Measure *
-                  </label>
-                  <select
-                    value={unitOfMeasure}
-                    onChange={(e) => setUnitOfMeasure(e.target.value as UnitOfMeasure)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
-                  >
-                    <option value="ML">Milliliters (ml)</option>
-                    <option value="PIECES">Pieces (pcs)</option>
-                    <option value="GRAMS">Grams (g)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                {/* Initial / Current Stock */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                    Current Stock *
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    step="any"
-                    min="0"
-                    value={currentStock}
-                    onChange={(e) => setCurrentStock(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                {/* Min Stock Alert */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                    Min Alert *
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    step="any"
-                    min="0"
-                    value={minStockAlert}
-                    onChange={(e) => setMinStockAlert(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                {/* Cost per unit */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                    Cost / Unit *
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    step="any"
-                    min="0"
-                    value={costPerUnit}
-                    onChange={(e) => setCostPerUnit(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-              </div>
-
-              {/* Submit Buttons */}
-              <div className="flex justify-end space-x-3 pt-3 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-sm font-medium text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-5 py-2 rounded-xl text-sm font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center gap-2 shadow-lg shadow-amber-500/20"
-                >
-                  {submitting ? "Saving..." : editingMaterialId ? "Update Material" : "Save Material"}
                 </button>
               </div>
             </form>
