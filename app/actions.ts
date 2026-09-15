@@ -724,6 +724,8 @@ export async function getDashboardMetrics() {
       (m) => m.current_stock <= m.min_stock_alert
     );
 
+    const lowStockProducts = products.filter((p) => p.stock <= 5);
+
     const pendingReviews = sales.filter((s) => !s.review_given);
 
     return {
@@ -734,6 +736,8 @@ export async function getDashboardMetrics() {
       productsCount: products.length,
       lowStockCount: lowStockMaterials.length,
       lowStockMaterials,
+      lowStockProducts,
+      lowStockProductCount: lowStockProducts.length,
       pendingReviewsCount: pendingReviews.length,
       pendingReviews: pendingReviews.slice(0, 5),
       paymentOptionBreakdown,
@@ -749,6 +753,8 @@ export async function getDashboardMetrics() {
       productsCount: 0,
       lowStockCount: 0,
       lowStockMaterials: [],
+      lowStockProducts: [],
+      lowStockProductCount: 0,
       pendingReviewsCount: 0,
       pendingReviews: [],
       paymentOptionBreakdown: { CASH: 0, EASYPAISA: 0, JAZZCASH: 0, BANK_TRANSFER: 0 },

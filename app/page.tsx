@@ -93,9 +93,9 @@ export default async function DashboardPage() {
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Low Stock Alert</p>
               <h3 className="text-2xl font-black text-rose-400 mt-2">
-                {metrics.lowStockCount} Item{metrics.lowStockCount === 1 ? "" : "s"}
+                {metrics.lowStockProductCount} Product{metrics.lowStockProductCount === 1 ? "" : "s"}
               </h3>
-              <p className="text-xs text-slate-500 mt-1">Raw Materials Needing Restock</p>
+              <p className="text-xs text-slate-500 mt-1">Perfumes Needing Restock</p>
             </div>
             <div className="p-3 bg-rose-500/10 text-rose-400 rounded-xl border border-rose-500/20">
               <AlertTriangle className="w-6 h-6" />
@@ -140,39 +140,38 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Low Stock Raw Material Warnings Section */}
-      {metrics.lowStockMaterials.length > 0 && (
+      {/* Low Stock Product Warnings Section */}
+      {metrics.lowStockProducts.length > 0 && (
         <div className="bg-rose-950/40 border border-rose-900/60 p-6 rounded-2xl shadow-lg">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-rose-300 flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-rose-400" />
-              <span>Critical Low Stock Raw Materials</span>
+              <span>Critical Low Stock Perfumes</span>
             </h2>
             <Link
-              href="/raw-materials"
+              href="/batch-production-v2"
               className="text-xs text-rose-300 hover:text-white font-medium flex items-center gap-1"
             >
-              <span>Restock Now</span>
+              <span>Produce Now</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {metrics.lowStockMaterials.map((material) => (
+            {metrics.lowStockProducts.map((product: any) => (
               <div
-                key={material.id}
+                key={product.id}
                 className="bg-slate-950/80 p-3.5 rounded-xl border border-rose-900/40 flex justify-between items-center"
               >
                 <div>
-                  <p className="font-semibold text-white text-sm">{material.name}</p>
+                  <p className="font-semibold text-white text-sm">{product.name}</p>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Category: <span className="text-slate-300">{material.category}</span>
+                    {product.perfume_quantity_ml}ml — {formatPKR(product.price)}
                   </p>
                 </div>
                 <div className="text-right">
                   <span className="inline-block px-2.5 py-1 text-xs font-bold bg-rose-500/20 text-rose-300 rounded-lg border border-rose-500/30">
-                    {material.current_stock} {material.unit_of_measure}
+                    {product.stock} bottle{product.stock === 1 ? "" : "s"}
                   </span>
-                  <p className="text-[10px] text-slate-500 mt-0.5">Min: {material.min_stock_alert}</p>
                 </div>
               </div>
             ))}
