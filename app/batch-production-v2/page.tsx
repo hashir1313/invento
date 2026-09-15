@@ -283,7 +283,7 @@ export default function BatchProductionV2Page() {
                 <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
                   <span className="text-xs text-slate-400 font-semibold block mb-1">Fragrance Oil Needed</span>
                   <span className={`text-2xl font-extrabold ${oilInsufficient ? "text-rose-400" : "text-amber-300"}`}>
-                    {oilGrams.toFixed(1)} g
+                    {oilGrams} g
                   </span>
                   {oilMaterial && (
                     <p className={`text-[11px] mt-1 ${oilInsufficient ? "text-rose-400" : "text-slate-500"}`}>
@@ -297,7 +297,7 @@ export default function BatchProductionV2Page() {
                   <span
                     className={`text-2xl font-extrabold ${ethanolInsufficient ? "text-rose-400" : "text-amber-300"}`}
                   >
-                    {ethanolMl.toFixed(1)} ml
+                    {ethanolMl} ml
                   </span>
                   {ethanolMaterial && (
                     <p className={`text-[11px] mt-1 ${ethanolInsufficient ? "text-rose-400" : "text-slate-500"}`}>
@@ -453,13 +453,13 @@ export default function BatchProductionV2Page() {
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-slate-400">Oil Required</span>
                   <span className={`font-bold ${oilInsufficient ? "text-rose-400" : "text-amber-300"}`}>
-                    {oilGrams.toFixed(1)} g
+                    {oilGrams} g
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-slate-400">Ethanol Required</span>
                   <span className={`font-bold ${ethanolInsufficient ? "text-rose-400" : "text-amber-300"}`}>
-                    {ethanolMl.toFixed(1)} ml
+                    {ethanolMl} ml
                   </span>
                 </div>
                 {bottleMaterialId && (
