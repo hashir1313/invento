@@ -665,7 +665,7 @@ export async function produceBatchV2(data: {
         data: {
           product_id: data.product_id,
           batch_quantity: bottlesProduced,
-          notes: data.notes || `${data.production_mode === "bottle" ? "Bottle" : "Mass"} production: ${totalMl}ml (${oilNeeded}ml oil + ${ethanolNeeded}ml ethanol) → ${bottlesProduced} bottles`,
+          notes: data.notes || `${data.production_mode === "bottle" ? "Bottle" : "Mass"} production: ${totalMl}ml (${oilNeeded}g oil + ${ethanolNeeded}ml ethanol) → ${bottlesProduced} bottles`,
         },
       });
 

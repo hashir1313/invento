@@ -68,8 +68,8 @@ export default function BatchProductionV2Page() {
       ? (Number(quantity) || 0) * (selectedProduct?.perfume_quantity_ml || 0)
       : Number(quantity) || 0;
 
-  const oilMl = totalMl * ((Number(concentration) || 0) / 100);
-  const ethanolMl = totalMl - oilMl;
+  const oilGrams = totalMl * ((Number(concentration) || 0) / 100);
+  const ethanolMl = totalMl - oilGrams;
 
   const bottlesProduced =
     productionMode === "bottle"
@@ -83,7 +83,7 @@ export default function BatchProductionV2Page() {
   const bottleMat = bottles.find((m) => m.id === bottleMaterialId);
   const boxMat = boxes.find((m) => m.id === boxMaterialId);
 
-  const oilInsufficient = oilMaterial && oilMaterial.current_stock < oilMl;
+  const oilInsufficient = oilMaterial && oilMaterial.current_stock < oilGrams;
   const ethanolInsufficient = ethanolMaterial && ethanolMaterial.current_stock < ethanolMl;
   const bottleInsufficient = bottleMat && bottlesProduced > 0 && bottleMat.current_stock < bottlesProduced;
   const boxInsufficient = boxMat && bottlesProduced > 0 && boxMat.current_stock < bottlesProduced;
@@ -121,7 +121,7 @@ export default function BatchProductionV2Page() {
         const r = res.result as any;
         alert(
           `Success! Produced ${r.bottlesProduced} bottle(s) of ${selectedProduct?.name}.\n` +
-            `Total: ${r.totalMl}ml (${r.oilNeeded}ml oil + ${r.ethanolNeeded}ml ethanol)`
+            `Total: ${r.totalMl}ml (${r.oilNeeded}g oil + ${r.ethanolNeeded}ml ethanol)`
         );
         loadData();
       } else {
@@ -283,11 +283,11 @@ export default function BatchProductionV2Page() {
                 <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
                   <span className="text-xs text-slate-400 font-semibold block mb-1">Fragrance Oil Needed</span>
                   <span className={`text-2xl font-extrabold ${oilInsufficient ? "text-rose-400" : "text-amber-300"}`}>
-                    {oilMl.toFixed(1)} ml
+                    {oilGrams.toFixed(1)} g
                   </span>
                   {oilMaterial && (
                     <p className={`text-[11px] mt-1 ${oilInsufficient ? "text-rose-400" : "text-slate-500"}`}>
-                      Available: {oilMaterial.current_stock} ml
+                      Available: {oilMaterial.current_stock} g
                       {oilInsufficient && " — INSUFFICIENT"}
                     </p>
                   )}
@@ -333,7 +333,7 @@ export default function BatchProductionV2Page() {
                   >
                     {oils.map((m) => (
                       <option key={m.id} value={m.id}>
-                        {m.name} ({m.current_stock} ml)
+                        {m.name} ({m.current_stock} g)
                       </option>
                     ))}
                   </select>
@@ -453,7 +453,7 @@ export default function BatchProductionV2Page() {
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-slate-400">Oil Required</span>
                   <span className={`font-bold ${oilInsufficient ? "text-rose-400" : "text-amber-300"}`}>
-                    {oilMl.toFixed(1)} ml
+                    {oilGrams.toFixed(1)} g
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
