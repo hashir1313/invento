@@ -484,6 +484,44 @@ export async function getRecipes() {
   }
 }
 
+export async function getRecipesForProduct(productId: string) {
+  try {
+    return await prisma.batchRecipeItem.findMany({
+      where: { product_id: productId },
+      include: { raw_material: true },
+    });
+  } catch (error) {
+    return [];
+  }
+}
+
+export async function saveRecipe(
+  productId: string,
+  items: { raw_material_id: string; quantity_required_per_unit: number }[]
+) {
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.batchRecipeItem.deleteMany({ where: { product_id: productId } });
+
+      if (items.length > 0) {
+        await tx.batchRecipeItem.createMany({
+          data: items.map((item) => ({
+            product_id: productId,
+            raw_material_id: item.raw_material_id,
+            quantity_required_per_unit: Number(item.quantity_required_per_unit),
+          })),
+        });
+      }
+    });
+
+    revalidatePath("/batch-production");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error saving recipe:", error);
+    return { success: false, error: error?.message || "Failed to save recipe" };
+  }
+}
+
 export async function produceBatch(data: {
   product_id: string;
   batch_quantity: number;

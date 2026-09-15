@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getProducts, getRawMaterials, produceBatch } from "../actions";
+import { getProducts, getRawMaterials, produceBatch, getRecipesForProduct, saveRecipe } from "../actions";
 import { formatPKR } from "@/lib/utils";
 import { 
   FlaskConical, 
@@ -11,7 +11,12 @@ import {
   Package, 
   Boxes,
   ArrowRight,
-  Zap
+  Zap,
+  Pencil,
+  X,
+  Plus,
+  Trash2,
+  Save
 } from "lucide-react";
 
 export default function BatchProductionPage() {
@@ -35,9 +40,21 @@ export default function BatchProductionPage() {
   const [selectedStickerId, setSelectedStickerId] = useState("");
   const [selectedCardId, setSelectedCardId] = useState("");
 
+  // Recipe Management State
+  const [isRecipeModalOpen, setIsRecipeModalOpen] = useState(false);
+  const [recipeItems, setRecipeItems] = useState<{ raw_material_id: string; quantity_required_per_unit: number }[]>([]);
+  const [recipeLoading, setRecipeLoading] = useState(false);
+  const [savingRecipe, setSavingRecipe] = useState(false);
+
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (selectedProductId) {
+      loadRecipeForProduct(selectedProductId);
+    }
+  }, [selectedProductId]);
 
   async function loadData() {
     setLoading(true);
@@ -63,6 +80,64 @@ export default function BatchProductionPage() {
     if (cards.length > 0) setSelectedCardId(cards[0].id);
 
     setLoading(false);
+  }
+
+  async function loadRecipeForProduct(productId: string) {
+    if (!productId) return;
+    setRecipeLoading(true);
+    const items = await getRecipesForProduct(productId);
+    setRecipeItems(
+      items.map((item) => ({
+        raw_material_id: item.raw_material_id,
+        quantity_required_per_unit: item.quantity_required_per_unit,
+      }))
+    );
+
+    const oil = items.find((i) => i.raw_material.category === "OIL");
+    const solvent = items.find((i) => i.raw_material.category === "SOLVENT");
+    if (oil) {
+      setSelectedOilId(oil.raw_material_id);
+      setOilMlPerBottle(oil.quantity_required_per_unit);
+    }
+    if (solvent) {
+      setSelectedEthanolId(solvent.raw_material_id);
+      setEthanolMlPerBottle(solvent.quantity_required_per_unit);
+    }
+    setRecipeLoading(false);
+  }
+
+  function openRecipeModal() {
+    if (selectedProductId) {
+      loadRecipeForProduct(selectedProductId);
+    }
+    setIsRecipeModalOpen(true);
+  }
+
+  function addRecipeItem() {
+    setRecipeItems([...recipeItems, { raw_material_id: rawMaterials[0]?.id || "", quantity_required_per_unit: 0 }]);
+  }
+
+  function updateRecipeItem(index: number, field: "raw_material_id" | "quantity_required_per_unit", value: any) {
+    const updated = [...recipeItems];
+    updated[index] = { ...updated[index], [field]: field === "quantity_required_per_unit" ? Number(value) : value };
+    setRecipeItems(updated);
+  }
+
+  function removeRecipeItem(index: number) {
+    setRecipeItems(recipeItems.filter((_, i) => i !== index));
+  }
+
+  async function handleSaveRecipe() {
+    if (!selectedProductId) return;
+    setSavingRecipe(true);
+    const res = await saveRecipe(selectedProductId, recipeItems);
+    setSavingRecipe(false);
+    if (res.success) {
+      setIsRecipeModalOpen(false);
+      loadRecipeForProduct(selectedProductId);
+    } else {
+      alert(res.error || "Failed to save recipe");
+    }
   }
 
   async function handleProduce(e: React.FormEvent) {
@@ -108,6 +183,14 @@ export default function BatchProductionPage() {
             Assemble finished perfume batches. Deducts required raw materials (oil, ethanol, bottles, stickers, boxes) and adds ready-to-sell perfume bottles.
           </p>
         </div>
+
+        <button
+          onClick={openRecipeModal}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-sm border border-slate-700 transition-all shadow-md self-start sm:self-auto"
+        >
+          <Pencil className="w-4 h-4 text-amber-400" />
+          <span>Manage Recipe</span>
+        </button>
       </div>
 
       {loading ? (
@@ -310,6 +393,132 @@ export default function BatchProductionPage() {
                 </p>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Recipe Management Modal */}
+      {isRecipeModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Pencil className="w-5 h-5 text-amber-400" />
+                  <span>Manage Recipe</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Define which raw materials and quantities are needed per bottle of <strong className="text-white">{selectedProduct?.name || "selected product"}</strong>.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsRecipeModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {recipeLoading ? (
+              <div className="text-center py-10">
+                <div className="animate-spin w-6 h-6 border-4 border-amber-500 border-t-transparent rounded-full mx-auto mb-2"></div>
+                <p className="text-slate-400 text-sm">Loading recipe...</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {recipeItems.length === 0 ? (
+                  <div className="text-center py-8 border border-dashed border-slate-800 rounded-xl">
+                    <AlertCircle className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                    <p className="text-slate-400 text-sm">No recipe defined for this product.</p>
+                    <p className="text-slate-500 text-xs mt-1">Add materials below to create a recipe.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-12 gap-2 text-[11px] font-bold uppercase text-slate-500 px-1">
+                      <div className="col-span-5">Raw Material</div>
+                      <div className="col-span-4">Quantity per Bottle</div>
+                      <div className="col-span-2">Unit</div>
+                      <div className="col-span-1"></div>
+                    </div>
+                    {recipeItems.map((item, index) => {
+                      const mat = rawMaterials.find((m) => m.id === item.raw_material_id);
+                      return (
+                        <div key={index} className="grid grid-cols-12 gap-2 items-center">
+                          <div className="col-span-5">
+                            <select
+                              value={item.raw_material_id}
+                              onChange={(e) => updateRecipeItem(index, "raw_material_id", e.target.value)}
+                              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white text-xs focus:outline-none focus:border-amber-500"
+                            >
+                              {rawMaterials.map((m) => (
+                                <option key={m.id} value={m.id}>
+                                  {m.name} ({m.category})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="col-span-4">
+                            <input
+                              type="number"
+                              required
+                              min="0"
+                              step="any"
+                              value={item.quantity_required_per_unit}
+                              onChange={(e) => updateRecipeItem(index, "quantity_required_per_unit", e.target.value)}
+                              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white text-xs focus:outline-none focus:border-amber-500"
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <span className="text-xs text-slate-400 font-medium">
+                              {mat?.unit_of_measure || "—"}
+                            </span>
+                          </div>
+                          <div className="col-span-1 flex justify-center">
+                            <button
+                              type="button"
+                              onClick={() => removeRecipeItem(index)}
+                              className="p-1.5 text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div className="flex justify-between items-center pt-3 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={addRecipeItem}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add Material</span>
+                  </button>
+
+                  <div className="flex space-x-3">
+                    <button
+                      type="button"
+                      onClick={() => setIsRecipeModalOpen(false)}
+                      className="px-4 py-2 rounded-xl text-sm font-medium text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveRecipe}
+                      disabled={savingRecipe || !selectedProductId}
+                      className="px-5 py-2 rounded-xl text-sm font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center gap-2 shadow-lg shadow-amber-500/20"
+                    >
+                      <Save className="w-4 h-4" />
+                      {savingRecipe ? "Saving..." : "Save Recipe"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
