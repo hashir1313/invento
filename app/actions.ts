@@ -588,6 +588,102 @@ export async function produceBatch(data: {
   }
 }
 
+export async function produceBatchV2(data: {
+  product_id: string;
+  production_mode: "bottle" | "mass";
+  quantity: number;
+  concentration: number;
+  oil_material_id: string;
+  ethanol_material_id: string;
+  bottle_material_id?: string;
+  box_material_id?: string;
+  notes?: string;
+}) {
+  try {
+    const qty = Number(data.quantity);
+    const concentration = Number(data.concentration) / 100;
+
+    const result = await prisma.$transaction(async (tx) => {
+      const product = await tx.product.findUnique({ where: { id: data.product_id } });
+      if (!product) throw new Error("Product not found");
+
+      let totalMl: number;
+      let bottlesProduced: number;
+
+      if (data.production_mode === "bottle") {
+        totalMl = qty * product.perfume_quantity_ml;
+        bottlesProduced = qty;
+      } else {
+        totalMl = qty;
+        bottlesProduced = Math.floor(qty / product.perfume_quantity_ml);
+      }
+
+      const oilNeeded = totalMl * concentration;
+      const ethanolNeeded = totalMl - oilNeeded;
+
+      const oilMaterial = await tx.rawMaterial.findUnique({ where: { id: data.oil_material_id } });
+      if (!oilMaterial) throw new Error("Oil material not found");
+      if (oilMaterial.current_stock < oilNeeded) {
+        throw new Error(`Insufficient ${oilMaterial.name}! Need ${oilNeeded} ml, but only ${oilMaterial.current_stock} ml available.`);
+      }
+
+      const ethanolMaterial = await tx.rawMaterial.findUnique({ where: { id: data.ethanol_material_id } });
+      if (!ethanolMaterial) throw new Error("Ethanol material not found");
+      if (ethanolMaterial.current_stock < ethanolNeeded) {
+        throw new Error(`Insufficient ${ethanolMaterial.name}! Need ${ethanolNeeded} ml, but only ${ethanolMaterial.current_stock} ml available.`);
+      }
+
+      await tx.rawMaterial.update({ where: { id: data.oil_material_id }, data: { current_stock: oilMaterial.current_stock - oilNeeded } });
+      await tx.rawMaterial.update({ where: { id: data.ethanol_material_id }, data: { current_stock: ethanolMaterial.current_stock - ethanolNeeded } });
+
+      if (data.bottle_material_id && bottlesProduced > 0) {
+        const bottleMat = await tx.rawMaterial.findUnique({ where: { id: data.bottle_material_id } });
+        if (bottleMat && bottleMat.current_stock < bottlesProduced) {
+          throw new Error(`Insufficient ${bottleMat.name}! Need ${bottlesProduced} pcs, but only ${bottleMat.current_stock} available.`);
+        }
+        if (bottleMat) {
+          await tx.rawMaterial.update({ where: { id: data.bottle_material_id }, data: { current_stock: bottleMat.current_stock - bottlesProduced } });
+        }
+      }
+
+      if (data.box_material_id && bottlesProduced > 0) {
+        const boxMat = await tx.rawMaterial.findUnique({ where: { id: data.box_material_id } });
+        if (boxMat && boxMat.current_stock < bottlesProduced) {
+          throw new Error(`Insufficient ${boxMat.name}! Need ${bottlesProduced} pcs, but only ${boxMat.current_stock} available.`);
+        }
+        if (boxMat) {
+          await tx.rawMaterial.update({ where: { id: data.box_material_id }, data: { current_stock: boxMat.current_stock - bottlesProduced } });
+        }
+      }
+
+      const updatedProduct = await tx.product.update({
+        where: { id: data.product_id },
+        data: { stock: { increment: bottlesProduced } },
+      });
+
+      const batchLog = await tx.batchProduction.create({
+        data: {
+          product_id: data.product_id,
+          batch_quantity: bottlesProduced,
+          notes: data.notes || `${data.production_mode === "bottle" ? "Bottle" : "Mass"} production: ${totalMl}ml (${oilNeeded}ml oil + ${ethanolNeeded}ml ethanol) → ${bottlesProduced} bottles`,
+        },
+      });
+
+      return { batchLog, updatedProduct, totalMl, oilNeeded, ethanolNeeded, bottlesProduced };
+    });
+
+    revalidatePath("/products");
+    revalidatePath("/raw-materials");
+    revalidatePath("/batch-production");
+    revalidatePath("/batch-production-v2");
+    revalidatePath("/");
+    return { success: true, result };
+  } catch (error: any) {
+    console.error("Error producing batch v2:", error);
+    return { success: false, error: error?.message || "Failed to produce batch" };
+  }
+}
+
 // ==========================================
 // DASHBOARD METRICS ACTION
 // ==========================================

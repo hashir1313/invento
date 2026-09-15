@@ -24,7 +24,7 @@ export default function Navbar() {
     { href: "/products", label: "Products", icon: Package },
     { href: "/sales", label: "Sales & Orders", icon: ShoppingCart },
     { href: "/raw-materials", label: "Raw Materials", icon: Boxes },
-    { href: "/batch-production", label: "Batch Production", icon: FlaskConical },
+    { href: "/batch-production-v2", label: "Production", icon: FlaskConical },
   ];
 
   async function handleLogout() {
