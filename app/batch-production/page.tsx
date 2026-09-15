@@ -174,7 +174,8 @@ export default function BatchProductionPage() {
                   <input
                     type="number"
                     required
-                    min="1"
+                    min="0"
+                    step="any"
                     value={oilMlPerBottle}
                     onChange={(e) => setOilMlPerBottle(Number(e.target.value))}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
@@ -188,7 +189,8 @@ export default function BatchProductionPage() {
                   <input
                     type="number"
                     required
-                    min="1"
+                    min="0"
+                    step="any"
                     value={ethanolMlPerBottle}
                     onChange={(e) => setEthanolMlPerBottle(Number(e.target.value))}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
