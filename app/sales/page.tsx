@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getSales, getProducts, createSale, updateSalePaymentStatus, toggleSaleReview } from "../actions";
+import { getSales, getProducts, createSale, updateSale, updateSalePaymentStatus, toggleSaleReview } from "../actions";
 import { formatPKR, formatDate, PAYMENT_STATUS_COLORS, PAYMENT_OPTION_LABELS } from "@/lib/utils";
 import { 
   ShoppingCart, 
@@ -14,7 +14,8 @@ import {
   X,
   User,
   Calendar,
-  CreditCard
+  CreditCard,
+  Pencil
 } from "lucide-react";
 import { PaymentStatus, PaymentOption } from "@prisma/client";
 
@@ -23,6 +24,7 @@ export default function SalesPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // Filters
@@ -67,22 +69,61 @@ export default function SalesPage() {
     }
   }
 
+  function openCreateModal() {
+    setEditingSaleId(null);
+    resetForm();
+    if (products.length > 0) {
+      setProductId(products[0].id);
+      setUnitPrice(products[0].price);
+    }
+    setIsModalOpen(true);
+  }
+
+  function openEditModal(sale: any) {
+    setEditingSaleId(sale.id);
+    setCustomerName(sale.customer_name);
+    setDatePurchased(new Date(sale.date_purchased).toISOString().split("T")[0]);
+    setProductId(sale.product_id);
+    setQuantity(sale.quantity);
+    setUnitPrice(sale.unit_price);
+    setPaymentStatus(sale.payment_status);
+    setPaymentOption(sale.payment_option);
+    setReviewGiven(sale.review_given);
+    setNotes(sale.notes || "");
+    setIsModalOpen(true);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!customerName.trim() || !productId) return;
 
     setSubmitting(true);
-    const res = await createSale({
-      customer_name: customerName,
-      date_purchased: datePurchased,
-      product_id: productId,
-      quantity: Number(quantity),
-      unit_price: Number(unitPrice),
-      payment_status: paymentStatus,
-      payment_option: paymentOption,
-      review_given: reviewGiven,
-      notes,
-    });
+    let res;
+    if (editingSaleId) {
+      res = await updateSale(editingSaleId, {
+        customer_name: customerName,
+        date_purchased: datePurchased,
+        product_id: productId,
+        quantity: Number(quantity),
+        unit_price: Number(unitPrice),
+        payment_status: paymentStatus,
+        payment_option: paymentOption,
+        review_given: reviewGiven,
+        notes,
+      });
+    } else {
+      res = await createSale({
+        customer_name: customerName,
+        date_purchased: datePurchased,
+        product_id: productId,
+        quantity: Number(quantity),
+        unit_price: Number(unitPrice),
+        payment_status: paymentStatus,
+        payment_option: paymentOption,
+        review_given: reviewGiven,
+        notes,
+      });
+    }
 
     setSubmitting(false);
 
@@ -91,11 +132,12 @@ export default function SalesPage() {
       resetForm();
       loadData();
     } else {
-      alert(res.error || "Failed to record sale");
+      alert(res.error || "Failed to save sale");
     }
   }
 
   function resetForm() {
+    setEditingSaleId(null);
     setCustomerName("");
     setQuantity(1);
     setPaymentStatus("PAYED");
@@ -129,7 +171,7 @@ export default function SalesPage() {
         </div>
 
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={openCreateModal}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/20 transition-all self-start sm:self-auto"
         >
           <Plus className="w-5 h-5" />
@@ -192,7 +234,7 @@ export default function SalesPage() {
               : "Click below to log your first customer purchase."}
           </p>
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={openCreateModal}
             className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 text-slate-950 font-bold text-sm"
           >
             <Plus className="w-4 h-4" />
@@ -213,6 +255,7 @@ export default function SalesPage() {
                   <th className="px-4 py-3.5">Payment Status</th>
                   <th className="px-4 py-3.5">Review Given</th>
                   <th className="px-4 py-3.5">Date</th>
+                  <th className="px-4 py-3.5">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60 text-slate-300">
@@ -281,6 +324,15 @@ export default function SalesPage() {
                     <td className="px-4 py-4 text-slate-400 text-xs">
                       {formatDate(sale.date_purchased)}
                     </td>
+                    <td className="px-4 py-4">
+                      <button
+                        onClick={() => openEditModal(sale)}
+                        className="text-xs text-amber-400 hover:text-amber-300 font-semibold flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-colors"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                        <span>Edit</span>
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -295,11 +347,20 @@ export default function SalesPage() {
           <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <ShoppingCart className="w-5 h-5 text-amber-400" />
-                <span>Record Customer Sale</span>
+                {editingSaleId ? (
+                  <>
+                    <Pencil className="w-5 h-5 text-amber-400" />
+                    <span>Edit Sale</span>
+                  </>
+                ) : (
+                  <>
+                    <ShoppingCart className="w-5 h-5 text-amber-400" />
+                    <span>Record Customer Sale</span>
+                  </>
+                )}
               </h3>
               <button
-                onClick={() => setIsModalOpen(false)}
+                onClick={() => { setIsModalOpen(false); resetForm(); }}
                 className="text-slate-400 hover:text-white p-1"
               >
                 <X className="w-5 h-5" />
@@ -455,7 +516,7 @@ export default function SalesPage() {
               <div className="flex justify-end space-x-3 pt-3 border-t border-slate-800">
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={() => { setIsModalOpen(false); resetForm(); }}
                   className="px-4 py-2 rounded-xl text-sm font-medium text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700"
                 >
                   Cancel
@@ -465,7 +526,7 @@ export default function SalesPage() {
                   disabled={submitting || products.length === 0}
                   className="px-5 py-2 rounded-xl text-sm font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center gap-2 shadow-lg shadow-amber-500/20"
                 >
-                  {submitting ? "Saving..." : "Save Sale"}
+                  {submitting ? "Saving..." : editingSaleId ? "Update Sale" : "Save Sale"}
                 </button>
               </div>
             </form>

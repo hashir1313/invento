@@ -234,6 +234,95 @@ export async function toggleSaleReview(id: string, currentStatus: boolean) {
   }
 }
 
+export async function updateSale(
+  id: string,
+  data: {
+    customer_name: string;
+    date_purchased?: string;
+    product_id: string;
+    quantity: number;
+    unit_price: number;
+    payment_status: PaymentStatus;
+    payment_option: PaymentOption;
+    review_given: boolean;
+    notes?: string;
+  }
+) {
+  try {
+    const qty = Number(data.quantity);
+    const unitPrice = Number(data.unit_price);
+    const totalPrice = qty * unitPrice;
+
+    const result = await prisma.$transaction(async (tx) => {
+      const existingSale = await tx.sale.findUnique({ where: { id } });
+      if (!existingSale) throw new Error("Sale not found");
+
+      const newProduct = await tx.product.findUnique({ where: { id: data.product_id } });
+      if (!newProduct) throw new Error("Selected product not found");
+
+      const oldProductId = existingSale.product_id;
+      const oldQty = existingSale.quantity;
+
+      if (oldProductId === data.product_id) {
+        const stockDiff = qty - oldQty;
+        if (stockDiff > 0 && newProduct.stock < stockDiff) {
+          throw new Error(
+            `Insufficient stock! Need ${stockDiff} more bottle(s), but only ${newProduct.stock} available.`
+          );
+        }
+        await tx.product.update({
+          where: { id: data.product_id },
+          data: { stock: newProduct.stock - stockDiff },
+        });
+      } else {
+        const oldProduct = await tx.product.findUnique({ where: { id: oldProductId } });
+        if (oldProduct) {
+          await tx.product.update({
+            where: { id: oldProductId },
+            data: { stock: oldProduct.stock + oldQty },
+          });
+        }
+
+        if (newProduct.stock < qty) {
+          throw new Error(
+            `Insufficient stock for ${newProduct.name}! Available: ${newProduct.stock} bottle(s), Requested: ${qty}`
+          );
+        }
+        await tx.product.update({
+          where: { id: data.product_id },
+          data: { stock: newProduct.stock - qty },
+        });
+      }
+
+      const sale = await tx.sale.update({
+        where: { id },
+        data: {
+          customer_name: data.customer_name,
+          date_purchased: data.date_purchased ? new Date(data.date_purchased) : existingSale.date_purchased,
+          product_id: data.product_id,
+          quantity: qty,
+          unit_price: unitPrice,
+          total_price: totalPrice,
+          payment_status: data.payment_status,
+          payment_option: data.payment_option,
+          review_given: Boolean(data.review_given),
+          notes: data.notes || null,
+        },
+      });
+
+      return sale;
+    });
+
+    revalidatePath("/sales");
+    revalidatePath("/products");
+    revalidatePath("/");
+    return { success: true, sale: result };
+  } catch (error: any) {
+    console.error("Error updating sale:", error);
+    return { success: false, error: error?.message || "Failed to update sale" };
+  }
+}
+
 // ==========================================
 // RAW MATERIALS ACTIONS
 // ==========================================
