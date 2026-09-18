@@ -31,6 +31,7 @@ export default function ProductsPage() {
   const [impression, setImpression] = useState(false);
   const [impressionOf, setImpressionOf] = useState("");
   const [price, setPrice] = useState(2500);
+  const [makingCost, setMakingCost] = useState(0);
   const [stock, setStock] = useState(10);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -67,6 +68,7 @@ export default function ProductsPage() {
     setImpression(product.impression);
     setImpressionOf(product.impression_of || "");
     setPrice(product.price);
+    setMakingCost(product.making_cost || 0);
     setStock(product.stock);
     setImageFile(null);
     setImagePreview(product.image_url || null);
@@ -103,6 +105,7 @@ export default function ProductsPage() {
           impression,
           impression_of: impression ? impressionOf : undefined,
           price: Number(price),
+          making_cost: Number(makingCost),
           stock: Number(stock),
           image_url: imageUrl,
         });
@@ -113,6 +116,7 @@ export default function ProductsPage() {
           impression,
           impression_of: impression ? impressionOf : undefined,
           price: Number(price),
+          making_cost: Number(makingCost),
           stock: Number(stock),
           image_url: imageUrl,
         });
@@ -139,6 +143,7 @@ export default function ProductsPage() {
     setImpression(false);
     setImpressionOf("");
     setPrice(2500);
+    setMakingCost(0);
     setStock(10);
     setImageFile(null);
     setImagePreview(null);
@@ -373,19 +378,36 @@ export default function ProductsPage() {
                 </div>
               </div>
 
-              {/* Initial / Current Stock */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                  {editingProductId ? "Current Stock (Bottles) *" : "Initial Finished Bottle Stock *"}
-                </label>
-                <input
-                  type="number"
-                  required
-                  min="0"
-                  value={stock}
-                  onChange={(e) => setStock(Number(e.target.value))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                {/* Making Cost */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                    Making Cost (PKR) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    value={makingCost}
+                    onChange={(e) => setMakingCost(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                {/* Initial / Current Stock */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                    {editingProductId ? "Current Stock (Bottles) *" : "Initial Finished Bottle Stock *"}
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    value={stock}
+                    onChange={(e) => setStock(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                  />
+                </div>
               </div>
 
               {/* Impression Toggle */}

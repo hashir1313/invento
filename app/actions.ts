@@ -25,6 +25,7 @@ export async function createProduct(data: {
   impression: boolean;
   impression_of?: string;
   price: number;
+  making_cost: number;
   stock: number;
   image_url?: string;
 }) {
@@ -36,6 +37,7 @@ export async function createProduct(data: {
         impression: Boolean(data.impression),
         impression_of: data.impression_of || null,
         price: Number(data.price),
+        making_cost: Number(data.making_cost),
         stock: Number(data.stock),
         image_url: data.image_url || null,
       },
@@ -57,6 +59,7 @@ export async function updateProduct(
     impression: boolean;
     impression_of?: string;
     price: number;
+    making_cost: number;
     stock: number;
     image_url?: string;
   }
@@ -68,6 +71,7 @@ export async function updateProduct(
       impression: Boolean(data.impression),
       impression_of: data.impression_of || null,
       price: Number(data.price),
+      making_cost: Number(data.making_cost),
       stock: Number(data.stock),
     };
     if (data.image_url !== undefined) {
@@ -759,6 +763,57 @@ export async function getDashboardMetrics() {
       pendingReviews: [],
       paymentOptionBreakdown: { CASH: 0, EASYPAISA: 0, JAZZCASH: 0, BANK_TRANSFER: 0 },
       recentSales: [],
+    };
+  }
+}
+
+// ==========================================
+// FINANCES METRICS ACTION
+// ==========================================
+
+export async function getFinancesMetrics() {
+  try {
+    const sales = await prisma.sale.findMany({
+      include: { product: true },
+      orderBy: { date_purchased: "desc" },
+    });
+
+    let totalRevenue = 0;
+    let totalMakingCost = 0;
+    let totalNetProfit = 0;
+
+    for (const sale of sales) {
+      if (sale.payment_status === "PAYED") {
+        const revenue = sale.total_price;
+        const makingCost = sale.quantity * (sale.product?.making_cost || 0);
+        const netProfit = revenue - makingCost;
+
+        totalRevenue += revenue;
+        totalMakingCost += makingCost;
+        totalNetProfit += netProfit;
+      }
+    }
+
+    const hashirProfit = totalNetProfit * 0.35;
+    const badarProfit = totalNetProfit * 0.65;
+
+    return {
+      totalRevenue,
+      totalMakingCost,
+      totalNetProfit,
+      hashirProfit,
+      badarProfit,
+      totalPayedSales: sales.filter((s) => s.payment_status === "PAYED").length,
+    };
+  } catch (error) {
+    console.error("Error calculating finances metrics:", error);
+    return {
+      totalRevenue: 0,
+      totalMakingCost: 0,
+      totalNetProfit: 0,
+      hashirProfit: 0,
+      badarProfit: 0,
+      totalPayedSales: 0,
     };
   }
 }

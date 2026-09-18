@@ -9,7 +9,8 @@ import {
   Boxes, 
   FlaskConical,
   Sparkles,
-  LogOut
+  LogOut,
+  BarChart3
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ export default function Navbar() {
     { href: "/sales", label: "Sales & Orders", icon: ShoppingCart },
     { href: "/raw-materials", label: "Raw Materials", icon: Boxes },
     { href: "/batch-production-v2", label: "Production", icon: FlaskConical },
+    { href: "/finances", label: "Finances", icon: BarChart3 },
   ];
 
   async function handleLogout() {

@@ -44,6 +44,7 @@ model Product {
   impression          Boolean  @default(false)
   impression_of       String?  // Name of designer scent if impression = true
   price               Float    // Sale price in PKR
+  making_cost          Float    @default(0) // Cost to produce one bottle in PKR
   stock               Int      @default(0) // Ready-to-sell bottles
   image_url           String?  // Vercel Blob WebP URL
   created_at          DateTime @default(now())
