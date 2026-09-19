@@ -45,6 +45,9 @@ export default function RawMaterialsPage() {
   const [restockUnitCost, setRestockUnitCost] = useState(15);
   const [supplier, setSupplier] = useState("");
 
+  // Filter state
+  const [categoryFilter, setCategoryFilter] = useState<"ALL" | MaterialCategory>("ALL");
+
   useEffect(() => {
     loadMaterials();
   }, []);
@@ -155,6 +158,22 @@ export default function RawMaterialsPage() {
     setIsRestockModalOpen(true);
   }
 
+  const categories: { value: "ALL" | MaterialCategory; label: string }[] = [
+    { value: "ALL", label: "All Materials" },
+    { value: "OIL", label: "Fragrance Oil" },
+    { value: "SOLVENT", label: "Solvent / Ethanol" },
+    { value: "BOTTLE", label: "Glass Bottle" },
+    { value: "CAP_SPRAY", label: "Spray / Cap" },
+    { value: "STICKER", label: "Sticker" },
+    { value: "BOX", label: "Packaging Box" },
+    { value: "CARD", label: "Thank You Card" },
+    { value: "OTHER", label: "Other" },
+  ];
+
+  const filteredMaterials = categoryFilter === "ALL"
+    ? materials
+    : materials.filter((m) => m.category === categoryFilter);
+
   return (
     <div className="space-y-6">
       {/* Header Banner */}
@@ -188,6 +207,37 @@ export default function RawMaterialsPage() {
         </div>
       </div>
 
+      {/* Category Filter Tabs */}
+      {!loading && materials.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {categories.map((cat) => {
+            const count = cat.value === "ALL"
+              ? materials.length
+              : materials.filter((m) => m.category === cat.value).length;
+            return (
+              <button
+                key={cat.value}
+                onClick={() => setCategoryFilter(cat.value)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                  categoryFilter === cat.value
+                    ? "bg-amber-500 text-slate-950 border-amber-500 shadow-lg shadow-amber-500/20"
+                    : "bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700 hover:text-white"
+                }`}
+              >
+                {cat.label}
+                <span className={`ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                  categoryFilter === cat.value
+                    ? "bg-slate-950/30 text-slate-950"
+                    : "bg-slate-800 text-slate-400"
+                }`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Materials List Table */}
       {loading ? (
         <div className="text-center py-16">
@@ -209,6 +259,14 @@ export default function RawMaterialsPage() {
             Add First Material
           </button>
         </div>
+      ) : filteredMaterials.length === 0 ? (
+        <div className="text-center py-16 bg-slate-900 border border-dashed border-slate-800 rounded-2xl">
+          <Boxes className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+          <h3 className="text-lg font-bold text-white">No Materials in This Category</h3>
+          <p className="text-slate-400 text-sm max-w-sm mx-auto mt-1">
+            Add materials to this category or switch to a different filter.
+          </p>
+        </div>
       ) : (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
           <div className="overflow-x-auto">
@@ -224,7 +282,7 @@ export default function RawMaterialsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60 text-slate-300">
-                {materials.map((mat) => {
+                {filteredMaterials.map((mat) => {
                   const isLow = mat.current_stock <= mat.min_stock_alert;
                   return (
                     <tr key={mat.id} className="hover:bg-slate-850/50 transition-colors">
