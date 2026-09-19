@@ -30,6 +30,7 @@ export default function BatchProductionV2Page() {
   const [ethanolMaterialId, setEthanolMaterialId] = useState("");
   const [bottleMaterialId, setBottleMaterialId] = useState("");
   const [boxMaterialId, setBoxMaterialId] = useState("");
+  const [stickerMaterialId, setStickerMaterialId] = useState("");
 
   useEffect(() => {
     loadData();
@@ -47,11 +48,13 @@ export default function BatchProductionV2Page() {
     const solvents = mats.filter((m) => m.category === "SOLVENT");
     const bottles = mats.filter((m) => m.category === "BOTTLE");
     const boxes = mats.filter((m) => m.category === "BOX");
+    const stickers = mats.filter((m) => m.category === "STICKER");
 
     if (oils.length > 0) setOilMaterialId(oils[0].id);
     if (solvents.length > 0) setEthanolMaterialId(solvents[0].id);
     if (bottles.length > 0) setBottleMaterialId(bottles[0].id);
     if (boxes.length > 0) setBoxMaterialId(boxes[0].id);
+    if (stickers.length > 0) setStickerMaterialId(stickers[0].id);
 
     setLoading(false);
   }
@@ -61,6 +64,7 @@ export default function BatchProductionV2Page() {
   const solvents = rawMaterials.filter((m) => m.category === "SOLVENT");
   const bottles = rawMaterials.filter((m) => m.category === "BOTTLE");
   const boxes = rawMaterials.filter((m) => m.category === "BOX");
+  const stickers = rawMaterials.filter((m) => m.category === "STICKER");
 
   // Auto-calculate
   const totalMl =
@@ -82,11 +86,13 @@ export default function BatchProductionV2Page() {
   const ethanolMaterial = solvents.find((m) => m.id === ethanolMaterialId);
   const bottleMat = bottles.find((m) => m.id === bottleMaterialId);
   const boxMat = boxes.find((m) => m.id === boxMaterialId);
+  const stickerMat = stickers.find((m) => m.id === stickerMaterialId);
 
   const oilInsufficient = oilMaterial && oilMaterial.current_stock < oilGrams;
   const ethanolInsufficient = ethanolMaterial && ethanolMaterial.current_stock < ethanolMl;
   const bottleInsufficient = bottleMat && bottlesProduced > 0 && bottleMat.current_stock < bottlesProduced;
   const boxInsufficient = boxMat && bottlesProduced > 0 && boxMat.current_stock < bottlesProduced;
+  const stickerInsufficient = stickerMat && bottlesProduced > 0 && stickerMat.current_stock < bottlesProduced;
 
   const canProduce =
     selectedProductId &&
@@ -98,7 +104,8 @@ export default function BatchProductionV2Page() {
     !oilInsufficient &&
     !ethanolInsufficient &&
     !bottleInsufficient &&
-    !boxInsufficient;
+    !boxInsufficient &&
+    !stickerInsufficient;
 
   async function handleProduce(e: React.FormEvent) {
     e.preventDefault();
@@ -115,6 +122,7 @@ export default function BatchProductionV2Page() {
         ethanol_material_id: ethanolMaterialId,
         bottle_material_id: bottleMaterialId || undefined,
         box_material_id: boxMaterialId || undefined,
+        sticker_material_id: stickerMaterialId || undefined,
       });
 
       if (res.success) {
@@ -393,6 +401,25 @@ export default function BatchProductionV2Page() {
                     ))}
                   </select>
                 </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Packaging Sticker</label>
+                  <select
+                    value={stickerMaterialId}
+                    onChange={(e) => setStickerMaterialId(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                  >
+                    <option value="">— None —</option>
+                    {stickers.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} ({m.current_stock} pcs)
+                        {stickerMat?.id === m.id && bottlesProduced > 0 && m.current_stock < bottlesProduced
+                          ? " — LOW"
+                          : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -478,6 +505,14 @@ export default function BatchProductionV2Page() {
                     </span>
                   </div>
                 )}
+                {stickerMaterialId && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-slate-400">Stickers Needed</span>
+                    <span className={`font-bold ${stickerInsufficient ? "text-rose-400" : "text-amber-300"}`}>
+                      {bottlesProduced} pcs
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="bg-emerald-950/40 p-4 rounded-xl border border-emerald-900/60 mt-2">
@@ -490,7 +525,7 @@ export default function BatchProductionV2Page() {
                 </p>
               </div>
 
-              {(oilInsufficient || ethanolInsufficient || bottleInsufficient || boxInsufficient) && (
+              {(oilInsufficient || ethanolInsufficient || bottleInsufficient || boxInsufficient || stickerInsufficient) && (
                 <div className="bg-rose-950/40 p-3 rounded-xl border border-rose-900/60">
                   <p className="text-xs font-semibold text-rose-300 flex items-center gap-1.5">
                     <AlertTriangle className="w-4 h-4" />

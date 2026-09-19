@@ -601,6 +601,7 @@ export async function produceBatchV2(data: {
   ethanol_material_id: string;
   bottle_material_id?: string;
   box_material_id?: string;
+  sticker_material_id?: string;
   notes?: string;
 }) {
   try {
@@ -657,6 +658,16 @@ export async function produceBatchV2(data: {
         }
         if (boxMat) {
           await tx.rawMaterial.update({ where: { id: data.box_material_id }, data: { current_stock: boxMat.current_stock - bottlesProduced } });
+        }
+      }
+
+      if (data.sticker_material_id && bottlesProduced > 0) {
+        const stickerMat = await tx.rawMaterial.findUnique({ where: { id: data.sticker_material_id } });
+        if (stickerMat && stickerMat.current_stock < bottlesProduced) {
+          throw new Error(`Insufficient ${stickerMat.name}! Need ${bottlesProduced} pcs, but only ${stickerMat.current_stock} available.`);
+        }
+        if (stickerMat) {
+          await tx.rawMaterial.update({ where: { id: data.sticker_material_id }, data: { current_stock: stickerMat.current_stock - bottlesProduced } });
         }
       }
 
