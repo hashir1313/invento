@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { getProducts, getRawMaterials, produceBatchV2 } from "../actions";
-import { formatPKR } from "@/lib/utils";
 import {
   FlaskConical,
   Package,
@@ -11,6 +10,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Zap,
+  Clock,
 } from "lucide-react";
 
 export default function BatchProductionV2Page() {
@@ -24,6 +24,9 @@ export default function BatchProductionV2Page() {
   const [productionMode, setProductionMode] = useState<"bottle" | "mass">("bottle");
   const [quantity, setQuantity] = useState<number>(10);
   const [concentration, setConcentration] = useState<number>(40);
+
+  // Maceration state
+  const [macerationDays, setMacerationDays] = useState<number>(0);
 
   // Material selections
   const [oilMaterialId, setOilMaterialId] = useState("");
@@ -123,13 +126,18 @@ export default function BatchProductionV2Page() {
         bottle_material_id: bottleMaterialId || undefined,
         box_material_id: boxMaterialId || undefined,
         sticker_material_id: stickerMaterialId || undefined,
+        maceration_days: macerationDays,
       });
 
       if (res.success) {
         const r = res.result as any;
+        const macerationMsg = macerationDays > 0
+          ? `\nMaceration: ${macerationDays} days — product will not be in stock yet.`
+          : `\n${r.bottlesProduced} bottle(s) added to available stock.`;
         alert(
           `Success! Produced ${r.bottlesProduced} bottle(s) of ${selectedProduct?.name}.\n` +
-            `Total: ${r.totalMl}ml (${r.oilNeeded}g oil + ${r.ethanolNeeded}ml ethanol)`
+            `Total: ${r.totalMl}ml (${r.oilNeeded}g oil + ${r.ethanolNeeded}ml ethanol)` +
+            macerationMsg
         );
         loadData();
       } else {
@@ -277,6 +285,36 @@ export default function BatchProductionV2Page() {
                     {concentration}% oil, {100 - concentration}% ethanol
                   </p>
                 </div>
+              </div>
+
+              {/* Maceration Period */}
+              <div className="border-t border-slate-800 pt-4 mt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Clock className="w-4 h-4 text-amber-400" />
+                  <label className="text-xs font-semibold text-slate-300 uppercase">
+                    Maceration Period (Days)
+                  </label>
+                </div>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="range"
+                    min="0"
+                    max="90"
+                    step="1"
+                    value={macerationDays}
+                    onChange={(e) => setMacerationDays(Number(e.target.value))}
+                    className="flex-1 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                  />
+                  <div className="w-20 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-center">
+                    <span className="text-lg font-bold text-white">{macerationDays}</span>
+                    <span className="text-[10px] text-slate-400 block">days</span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-2">
+                  {macerationDays === 0
+                    ? "No maceration — product goes directly to available stock"
+                    : `Product will macerate for ${macerationDays} day${macerationDays !== 1 ? "s" : ""} before becoming available`}
+                </p>
               </div>
             </div>
 
@@ -429,10 +467,21 @@ export default function BatchProductionV2Page() {
               disabled={submitting || !canProduce}
               className="w-full py-4 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition-all"
             >
-              <FlaskConical className="w-5 h-5" />
-              {submitting
-                ? "Producing..."
-                : `Produce ${bottlesProduced} Bottle${bottlesProduced !== 1 ? "s" : ""} (+${bottlesProduced} Stock)`}
+              {macerationDays > 0 ? (
+                <>
+                  <Clock className="w-5 h-5" />
+                  {submitting
+                    ? "Producing..."
+                    : `Produce & Start Maceration (${macerationDays} days)`}
+                </>
+              ) : (
+                <>
+                  <FlaskConical className="w-5 h-5" />
+                  {submitting
+                    ? "Producing..."
+                    : `Produce ${bottlesProduced} Bottle${bottlesProduced !== 1 ? "s" : ""} (+${bottlesProduced} Stock)`}
+                </>
+              )}
             </button>
           </div>
 
@@ -518,11 +567,19 @@ export default function BatchProductionV2Page() {
               <div className="bg-emerald-950/40 p-4 rounded-xl border border-emerald-900/60 mt-2">
                 <p className="text-xs font-semibold text-emerald-300 flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Stock Output</span>
+                  <span>{macerationDays > 0 ? "Maceration" : "Stock Output"}</span>
                 </p>
                 <p className="text-sm font-extrabold text-white mt-1">
-                  +{bottlesProduced} bottle{bottlesProduced !== 1 ? "s" : ""} of {selectedProduct?.name || "—"}
+                  {macerationDays > 0
+                    ? `${bottlesProduced} bottle${bottlesProduced !== 1 ? "s" : ""} will macerate for ${macerationDays} day${macerationDays !== 1 ? "s" : ""}`
+                    : `+${bottlesProduced} bottle${bottlesProduced !== 1 ? "s" : ""} of ${selectedProduct?.name || "—"}`
+                  }
                 </p>
+                {macerationDays > 0 && (
+                  <p className="text-[11px] text-emerald-400/80 mt-1">
+                    Product will not be available for sale until maceration ends
+                  </p>
+                )}
               </div>
 
               {(oilInsufficient || ethanolInsufficient || bottleInsufficient || boxInsufficient || stickerInsufficient) && (

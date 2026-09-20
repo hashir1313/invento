@@ -10,7 +10,8 @@ import {
   FlaskConical,
   Sparkles,
   LogOut,
-  BarChart3
+  BarChart3,
+  Clock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,7 @@ export default function Navbar() {
     { href: "/sales", label: "Sales & Orders", icon: ShoppingCart },
     { href: "/raw-materials", label: "Raw Materials", icon: Boxes },
     { href: "/batch-production-v2", label: "Production", icon: FlaskConical },
+    { href: "/maceration", label: "Maceration", icon: Clock },
     { href: "/finances", label: "Finances", icon: BarChart3 },
   ];
 

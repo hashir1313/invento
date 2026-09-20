@@ -11,7 +11,8 @@ import {
   Boxes, 
   CreditCard,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  Timer
 } from "lucide-react";
 
 export const revalidate = 0; // Dynamic server page
@@ -172,6 +173,43 @@ export default async function DashboardPage() {
                   <span className="inline-block px-2.5 py-1 text-xs font-bold bg-rose-500/20 text-rose-300 rounded-lg border border-rose-500/30">
                     {product.stock} bottle{product.stock === 1 ? "" : "s"}
                   </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Maceration Complete Alerts Section */}
+      {metrics.completedMacerationsCount > 0 && (
+        <div className="bg-amber-950/40 border border-amber-900/60 p-6 rounded-2xl shadow-lg">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-amber-300 flex items-center gap-2">
+              <Timer className="w-5 h-5 text-amber-400" />
+              <span>Maceration Complete — Action Required</span>
+            </h2>
+            <Link
+              href="/maceration"
+              className="text-xs text-amber-300 hover:text-white font-medium flex items-center gap-1"
+            >
+              <span>Manage Maceration</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+          <p className="text-sm text-amber-200/80 mb-4">
+            {metrics.completedMacerationsCount} batch{metrics.completedMacerationsCount !== 1 ? "es" : ""} have completed maceration. Add to stock or extend the period.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {metrics.completedMacerations.map((maceration: any) => (
+              <div
+                key={maceration.id}
+                className="bg-slate-950/80 p-3.5 rounded-xl border border-amber-900/40"
+              >
+                <div>
+                  <p className="font-semibold text-white text-sm">{maceration.product?.name}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {maceration.batch_quantity} bottle{maceration.batch_quantity !== 1 ? "s" : ""} — Ended {formatDate(maceration.end_date)}
+                  </p>
                 </div>
               </div>
             ))}

@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { PaymentStatus, PaymentOption, MaterialCategory, UnitOfMeasure } from "@prisma/client";
+import { PaymentStatus, PaymentOption, MaterialCategory, UnitOfMeasure, MacerationStatus } from "@prisma/client";
 
 // ==========================================
 // PRODUCTS ACTIONS
@@ -602,11 +602,13 @@ export async function produceBatchV2(data: {
   bottle_material_id?: string;
   box_material_id?: string;
   sticker_material_id?: string;
+  maceration_days?: number;
   notes?: string;
 }) {
   try {
     const qty = Number(data.quantity);
     const concentration = Number(data.concentration) / 100;
+    const macerationDays = Number(data.maceration_days) || 0;
 
     const result = await prisma.$transaction(async (tx) => {
       const product = await tx.product.findUnique({ where: { id: data.product_id } });
@@ -671,26 +673,46 @@ export async function produceBatchV2(data: {
         }
       }
 
-      const updatedProduct = await tx.product.update({
-        where: { id: data.product_id },
-        data: { stock: { increment: bottlesProduced } },
-      });
+      // Handle maceration
+      if (macerationDays > 0) {
+        const startDate = new Date();
+        const endDate = new Date();
+        endDate.setDate(endDate.getDate() + macerationDays);
+
+        await tx.macerationBatch.create({
+          data: {
+            product_id: data.product_id,
+            batch_quantity: bottlesProduced,
+            start_date: startDate,
+            end_date: endDate,
+            status: "MACERATING",
+            notes: `${data.production_mode === "bottle" ? "Bottle" : "Mass"} production: ${totalMl}ml (${oilNeeded}g oil + ${ethanolNeeded}ml ethanol) → ${bottlesProduced} bottles. Maceration: ${macerationDays} days.`,
+          },
+        });
+      } else {
+        // No maceration - add directly to stock
+        await tx.product.update({
+          where: { id: data.product_id },
+          data: { stock: { increment: bottlesProduced } },
+        });
+      }
 
       const batchLog = await tx.batchProduction.create({
         data: {
           product_id: data.product_id,
           batch_quantity: bottlesProduced,
-          notes: data.notes || `${data.production_mode === "bottle" ? "Bottle" : "Mass"} production: ${totalMl}ml (${oilNeeded}g oil + ${ethanolNeeded}ml ethanol) → ${bottlesProduced} bottles`,
+          notes: data.notes || `${data.production_mode === "bottle" ? "Bottle" : "Mass"} production: ${totalMl}ml (${oilNeeded}g oil + ${ethanolNeeded}ml ethanol) → ${bottlesProduced} bottles${macerationDays > 0 ? `. Maceration: ${macerationDays} days` : " (no maceration)"}`,
         },
       });
 
-      return { batchLog, updatedProduct, totalMl, oilNeeded, ethanolNeeded, bottlesProduced };
+      return { batchLog, totalMl, oilNeeded, ethanolNeeded, bottlesProduced, macerationDays };
     });
 
     revalidatePath("/products");
     revalidatePath("/raw-materials");
     revalidatePath("/batch-production");
     revalidatePath("/batch-production-v2");
+    revalidatePath("/maceration");
     revalidatePath("/");
     return { success: true, result };
   } catch (error: any) {
@@ -705,10 +727,18 @@ export async function produceBatchV2(data: {
 
 export async function getDashboardMetrics() {
   try {
-    const [sales, products, rawMaterials] = await Promise.all([
+    const [sales, products, rawMaterials, completedMacerations] = await Promise.all([
       prisma.sale.findMany({ include: { product: true }, orderBy: { date_purchased: "desc" } }),
       prisma.product.findMany(),
       prisma.rawMaterial.findMany(),
+      prisma.macerationBatch.findMany({
+        where: {
+          status: "MACERATING",
+          end_date: { lte: new Date() },
+        },
+        include: { product: true },
+        orderBy: { end_date: "asc" },
+      }),
     ]);
 
     let totalRevenue = 0;
@@ -757,6 +787,8 @@ export async function getDashboardMetrics() {
       pendingReviews: pendingReviews.slice(0, 5),
       paymentOptionBreakdown,
       recentSales: sales.slice(0, 5),
+      completedMacerations,
+      completedMacerationsCount: completedMacerations.length,
     };
   } catch (error) {
     console.error("Error calculating dashboard metrics:", error);
@@ -774,6 +806,8 @@ export async function getDashboardMetrics() {
       pendingReviews: [],
       paymentOptionBreakdown: { CASH: 0, EASYPAISA: 0, JAZZCASH: 0, BANK_TRANSFER: 0 },
       recentSales: [],
+      completedMacerations: [],
+      completedMacerationsCount: 0,
     };
   }
 }
@@ -826,5 +860,168 @@ export async function getFinancesMetrics() {
       badarProfit: 0,
       totalPayedSales: 0,
     };
+  }
+}
+
+// ==========================================
+// MACERATION ACTIONS
+// ==========================================
+
+export async function getMacerationBatches(status?: MacerationStatus) {
+  try {
+    const where: any = {};
+    if (status) {
+      where.status = status;
+    }
+
+    return await prisma.macerationBatch.findMany({
+      where,
+      include: { product: true },
+      orderBy: { created_at: "desc" },
+    });
+  } catch (error) {
+    console.error("Error fetching maceration batches:", error);
+    return [];
+  }
+}
+
+export async function createMacerationBatch(data: {
+  product_id: string;
+  batch_quantity: number;
+  start_date: string;
+  end_date: string;
+  notes?: string;
+}) {
+  try {
+    const batchQty = Number(data.batch_quantity);
+    const startDate = new Date(data.start_date);
+    const endDate = new Date(data.end_date);
+
+    if (endDate <= startDate) {
+      throw new Error("End date must be after start date");
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const product = await tx.product.findUnique({ where: { id: data.product_id } });
+      if (!product) throw new Error("Product not found");
+
+      const macerationBatch = await tx.macerationBatch.create({
+        data: {
+          product_id: data.product_id,
+          batch_quantity: batchQty,
+          start_date: startDate,
+          end_date: endDate,
+          status: "MACERATING",
+          notes: data.notes || null,
+        },
+        include: { product: true },
+      });
+
+      return macerationBatch;
+    });
+
+    revalidatePath("/maceration");
+    revalidatePath("/");
+    return { success: true, maceration: result };
+  } catch (error: any) {
+    console.error("Error creating maceration batch:", error);
+    return { success: false, error: error?.message || "Failed to create maceration batch" };
+  }
+}
+
+export async function addMacerationToStock(id: string) {
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const maceration = await tx.macerationBatch.findUnique({
+        where: { id },
+        include: { product: true },
+      });
+
+      if (!maceration) throw new Error("Maceration batch not found");
+      if (maceration.status !== "MACERATING") {
+        throw new Error("This maceration batch is not in MACERATING status");
+      }
+
+      await tx.product.update({
+        where: { id: maceration.product_id },
+        data: { stock: { increment: maceration.batch_quantity } },
+      });
+
+      const updatedMaceration = await tx.macerationBatch.update({
+        where: { id },
+        data: { status: "ADDED_TO_STOCK" },
+        include: { product: true },
+      });
+
+      return updatedMaceration;
+    });
+
+    revalidatePath("/maceration");
+    revalidatePath("/products");
+    revalidatePath("/");
+    return { success: true, maceration: result };
+  } catch (error: any) {
+    console.error("Error adding maceration to stock:", error);
+    return { success: false, error: error?.message || "Failed to add to stock" };
+  }
+}
+
+export async function extendMaceration(id: string, newEndDate: string) {
+  try {
+    const endDate = new Date(newEndDate);
+
+    const result = await prisma.$transaction(async (tx) => {
+      const maceration = await tx.macerationBatch.findUnique({ where: { id } });
+      if (!maceration) throw new Error("Maceration batch not found");
+      if (maceration.status !== "MACERATING") {
+        throw new Error("This maceration batch is not in MACERATING status");
+      }
+
+      if (endDate <= maceration.start_date) {
+        throw new Error("New end date must be after start date");
+      }
+
+      const updatedMaceration = await tx.macerationBatch.update({
+        where: { id },
+        data: { end_date: endDate },
+        include: { product: true },
+      });
+
+      return updatedMaceration;
+    });
+
+    revalidatePath("/maceration");
+    revalidatePath("/");
+    return { success: true, maceration: result };
+  } catch (error: any) {
+    console.error("Error extending maceration:", error);
+    return { success: false, error: error?.message || "Failed to extend maceration" };
+  }
+}
+
+export async function getCompletedMacerations() {
+  try {
+    return await prisma.macerationBatch.findMany({
+      where: {
+        status: "MACERATING",
+        end_date: { lte: new Date() },
+      },
+      include: { product: true },
+      orderBy: { end_date: "asc" },
+    });
+  } catch (error) {
+    console.error("Error fetching completed macerations:", error);
+    return [];
+  }
+}
+
+export async function deleteMacerationBatch(id: string) {
+  try {
+    await prisma.macerationBatch.delete({ where: { id } });
+    revalidatePath("/maceration");
+    revalidatePath("/");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error?.message || "Failed to delete maceration batch" };
   }
 }
