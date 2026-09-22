@@ -14,6 +14,7 @@ import {
   Sparkles,
   Timer
 } from "lucide-react";
+import MacerationAlertCards from "@/components/MacerationAlertCards";
 
 export const revalidate = 0; // Dynamic server page
 
@@ -199,21 +200,7 @@ export default async function DashboardPage() {
           <p className="text-sm text-amber-200/80 mb-4">
             {metrics.completedMacerationsCount} batch{metrics.completedMacerationsCount !== 1 ? "es" : ""} have completed maceration. Add to stock or extend the period.
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {metrics.completedMacerations.map((maceration: any) => (
-              <div
-                key={maceration.id}
-                className="bg-slate-950/80 p-3.5 rounded-xl border border-amber-900/40"
-              >
-                <div>
-                  <p className="font-semibold text-white text-sm">{maceration.product?.name}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    {maceration.batch_quantity} bottle{maceration.batch_quantity !== 1 ? "s" : ""} — Ended {formatDate(maceration.end_date)}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <MacerationAlertCards items={metrics.completedMacerations} />
         </div>
       )}
 
