@@ -5,7 +5,6 @@ import { getProducts, createProduct, updateProduct, updateProductStock, deletePr
 import { formatPKR } from "@/lib/utils";
 import { compressImageToWebP } from "@/lib/webp-compressor";
 import { 
-  Package, 
   Plus, 
   Upload, 
   Trash2, 
@@ -165,22 +164,20 @@ export default function ProductsPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-slate-900 p-6 rounded-2xl border border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-white flex items-center gap-2">
-            <Package className="w-6 h-6 text-amber-400" />
-            <span>Perfume Products Catalog</span>
-          </h1>
-          <p className="text-slate-400 text-sm mt-1">
+          <p className="eyebrow mb-3">Inventory / Perfume Catalog</p>
+          <h1 className="text-h2 text-ink">Perfume Products Catalog</h1>
+          <p className="text-body text-sm mt-1">
             Manage your finished perfume bottles, stock counts, ml volumes, and prices.
           </p>
         </div>
 
         <button
           onClick={openCreateModal}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/20 transition-all self-start sm:self-auto"
+          className="btn btn-primary btn-pill self-start sm:self-auto"
         >
-          <Plus className="w-5 h-5" />
+          <Plus className="w-4 h-4" />
           <span>Add New Perfume</span>
         </button>
       </div>
@@ -188,19 +185,19 @@ export default function ProductsPage() {
       {/* Products Grid */}
       {loading ? (
         <div className="text-center py-16">
-          <div className="animate-spin w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full mx-auto mb-3"></div>
-          <p className="text-slate-400 text-sm">Loading perfume catalog...</p>
+          <div className="animate-spin w-6 h-6 border-2 border-hairline border-t-ink rounded-full mx-auto mb-3"></div>
+          <p className="text-body text-sm">Loading perfume catalog...</p>
         </div>
       ) : products.length === 0 ? (
-        <div className="text-center py-16 bg-slate-900 border border-dashed border-slate-800 rounded-2xl">
-          <Droplets className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-          <h3 className="text-lg font-bold text-white">No Perfumes Added Yet</h3>
-          <p className="text-slate-400 text-sm max-w-sm mx-auto mt-1">
+        <div className="card border-dashed text-center py-16">
+          <Droplets className="w-6 h-6 text-faint mx-auto mb-3" />
+          <h3 className="text-h3">No Perfumes Added Yet</h3>
+          <p className="text-body text-sm max-w-sm mx-auto mt-1">
             Click the button below to add your first perfume product to the inventory.
           </p>
           <button
             onClick={openCreateModal}
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 text-slate-950 font-bold text-sm"
+            className="btn btn-sm btn-primary mt-4"
           >
             <Plus className="w-4 h-4" />
             Add First Perfume
@@ -211,10 +208,10 @@ export default function ProductsPage() {
           {products.map((product) => (
             <div
               key={product.id}
-              className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg hover:border-slate-700 transition-all flex flex-col justify-between"
+              className="card p-0 overflow-hidden flex flex-col justify-between transition-shadow hover:shadow-whisper"
             >
               {/* Product Image Preview Header */}
-              <div className="relative h-48 bg-slate-950 flex items-center justify-center border-b border-slate-800 overflow-hidden">
+              <div className="relative h-48 bg-hairline-soft flex items-center justify-center border-b border-hairline overflow-hidden">
                 {product.image_url ? (
                   <img
                     src={product.image_url}
@@ -223,19 +220,19 @@ export default function ProductsPage() {
                   />
                 ) : (
                   <div className="text-center p-6">
-                    <Droplets className="w-10 h-10 text-slate-700 mx-auto mb-2" />
-                    <span className="text-xs text-slate-500">No Image Uploaded</span>
+                    <Droplets className="w-10 h-10 text-faint mx-auto mb-2" />
+                    <span className="text-xs text-mute">No Image Uploaded</span>
                   </div>
                 )}
 
                 {/* ml volume tag */}
-                <div className="absolute top-3 left-3 bg-slate-950/80 backdrop-blur-md px-2.5 py-1 rounded-lg text-xs font-bold text-amber-300 border border-amber-500/30">
+                <div className="absolute top-3 left-3 badge badge-neutral bg-elevated border border-hairline shadow-whisper">
                   {product.perfume_quantity_ml} ml
                 </div>
 
                 {/* Impression badge */}
                 {product.impression && (
-                  <div className="absolute top-3 right-3 bg-sky-500/20 backdrop-blur-md px-2.5 py-1 rounded-lg text-[11px] font-semibold text-sky-300 border border-sky-500/40 flex items-center gap-1">
+                  <div className="absolute top-3 right-3 badge badge-neutral bg-elevated border border-hairline shadow-whisper">
                     <Sparkles className="w-3 h-3" />
                     <span>Impression</span>
                   </div>
@@ -245,22 +242,22 @@ export default function ProductsPage() {
               {/* Product Info */}
               <div className="p-5 space-y-4">
                 <div>
-                  <h3 className="text-lg font-bold text-white">{product.name}</h3>
+                  <h3 className="text-sm font-semibold text-ink">{product.name}</h3>
                   {product.impression && product.impression_of && (
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Inspired by: <span className="text-slate-300 italic">{product.impression_of}</span>
+                    <p className="text-xs text-mute mt-0.5">
+                      Inspired by: <span className="text-ink font-medium">{product.impression_of}</span>
                     </p>
                   )}
-                  <p className="text-xl font-black text-amber-400 mt-2">
+                  <p className="text-h3 tabular-nums text-ink mt-2">
                     {formatPKR(product.price)}
                   </p>
                 </div>
 
                 {/* Stock Counter Controls */}
-                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+                <div className="well p-3 flex items-center justify-between">
                   <div>
-                    <span className="text-xs text-slate-400 block font-semibold">Available Stock</span>
-                    <span className={`text-base font-extrabold ${product.stock <= 5 ? "text-rose-400" : "text-emerald-400"}`}>
+                    <span className="eyebrow block">Available Stock</span>
+                    <span className={`text-h3 tabular-nums ${product.stock <= 5 ? "text-error" : "text-ink"}`}>
                       {product.stock} bottle{product.stock === 1 ? "" : "s"}
                     </span>
                   </div>
@@ -268,13 +265,13 @@ export default function ProductsPage() {
                   <div className="flex items-center space-x-1.5">
                     <button
                       onClick={() => handleStockChange(product.id, product.stock, -1)}
-                      className="w-8 h-8 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-bold text-lg flex items-center justify-center transition-colors"
+                      className="btn btn-sm btn-secondary w-8"
                     >
                       -
                     </button>
                     <button
                       onClick={() => handleStockChange(product.id, product.stock, 1)}
-                      className="w-8 h-8 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-bold text-lg flex items-center justify-center transition-colors"
+                      className="btn btn-sm btn-secondary w-8"
                     >
                       +
                     </button>
@@ -285,14 +282,14 @@ export default function ProductsPage() {
                 <div className="pt-2 flex justify-end space-x-2">
                   <button
                     onClick={() => openEditModal(product)}
-                    className="text-xs text-amber-400 hover:text-amber-300 font-semibold flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-colors"
+                    className="btn btn-sm btn-secondary"
                   >
                     <Pencil className="w-3.5 h-3.5" />
                     <span>Edit</span>
                   </button>
                   <button
                     onClick={() => handleDelete(product.id, product.name)}
-                    className="text-xs text-rose-400 hover:text-rose-300 font-medium flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover:bg-rose-500/10 transition-colors"
+                    className="btn btn-sm btn-danger"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Delete</span>
@@ -306,34 +303,34 @@ export default function ProductsPage() {
 
       {/* Add / Edit Perfume Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+        <div className="modal-overlay">
+          <div className="modal-panel w-full max-w-lg p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-hairline pb-4">
+              <h3 className="text-h3 flex items-center gap-2">
                 {editingProductId ? (
                   <>
-                    <Pencil className="w-5 h-5 text-amber-400" />
+                    <Pencil className="w-4 h-4 text-mute" />
                     <span>Edit Perfume Product</span>
                   </>
                 ) : (
                   <>
-                    <Plus className="w-5 h-5 text-amber-400" />
+                    <Plus className="w-4 h-4 text-mute" />
                     <span>Add New Perfume Product</span>
                   </>
                 )}
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-white p-1"
+                className="btn btn-sm btn-secondary"
               >
-                <X className="w-5 h-5" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Product Name */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                <label className="field-label">
                   Perfume Name *
                 </label>
                 <input
@@ -342,14 +339,14 @@ export default function ProductsPage() {
                   placeholder="e.g. Velvet Oud, Santal Dream"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-amber-500"
+                  className="input"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 {/* Volume in ml */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                  <label className="field-label">
                     Volume (ml) *
                   </label>
                   <input
@@ -358,13 +355,13 @@ export default function ProductsPage() {
                     min="1"
                     value={perfumeQuantityMl}
                     onChange={(e) => setPerfumeQuantityMl(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                    className="input"
                   />
                 </div>
 
                 {/* Sale Price */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                  <label className="field-label">
                     Selling Price (PKR) *
                   </label>
                   <input
@@ -373,7 +370,7 @@ export default function ProductsPage() {
                     min="0"
                     value={price}
                     onChange={(e) => setPrice(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                    className="input"
                   />
                 </div>
               </div>
@@ -381,7 +378,7 @@ export default function ProductsPage() {
               <div className="grid grid-cols-2 gap-4">
                 {/* Making Cost */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                  <label className="field-label">
                     Making Cost (PKR) *
                   </label>
                   <input
@@ -390,13 +387,13 @@ export default function ProductsPage() {
                     min="0"
                     value={makingCost}
                     onChange={(e) => setMakingCost(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                    className="input"
                   />
                 </div>
 
                 {/* Initial / Current Stock */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                  <label className="field-label">
                     {editingProductId ? "Current Stock (Bottles) *" : "Initial Finished Bottle Stock *"}
                   </label>
                   <input
@@ -405,29 +402,29 @@ export default function ProductsPage() {
                     min="0"
                     value={stock}
                     onChange={(e) => setStock(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                    className="input"
                   />
                 </div>
               </div>
 
               {/* Impression Toggle */}
-              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+              <div className="well p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-semibold text-white flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-sky-400" />
+                  <label className="text-sm font-medium text-ink flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-mute" />
                     <span>Is this an Impression Scent?</span>
                   </label>
                   <input
                     type="checkbox"
                     checked={impression}
                     onChange={(e) => setImpression(e.target.checked)}
-                    className="w-5 h-5 accent-amber-500 rounded cursor-pointer"
+                    className="w-5 h-5 accent-primary rounded cursor-pointer"
                   />
                 </div>
 
                 {impression && (
                   <div>
-                    <label className="block text-xs font-medium text-slate-400 mb-1">
+                    <label className="field-label">
                       Impression Of (Original Designer Fragrance)
                     </label>
                     <input
@@ -435,7 +432,7 @@ export default function ProductsPage() {
                       placeholder="e.g. Tom Ford Tobacco Vanille, Creed Aventus"
                       value={impressionOf}
                       onChange={(e) => setImpressionOf(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white text-xs focus:outline-none focus:border-amber-500"
+                      className="input"
                     />
                   </div>
                 )}
@@ -443,10 +440,10 @@ export default function ProductsPage() {
 
               {/* Image Picker with Auto WebP Compression */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                <label className="field-label">
                   Product Image (Auto WebP Compressed)
                 </label>
-                <div className="border border-dashed border-slate-700 bg-slate-950 rounded-xl p-4 text-center cursor-pointer hover:border-amber-500 transition-colors">
+                <div className="border border-dashed border-hairline bg-canvas rounded-md p-4 text-center hover:border-link transition-colors">
                   <input
                     type="file"
                     accept="image/*"
@@ -460,15 +457,15 @@ export default function ProductsPage() {
                         <img
                           src={imagePreview}
                           alt="Preview"
-                          className="h-28 object-contain rounded-lg mx-auto"
+                          className="h-28 object-contain rounded-sm mx-auto"
                         />
-                        <span className="text-[11px] text-amber-400 font-semibold block">Click to replace image</span>
+                        <span className="text-xs text-link hover:text-link-deep font-medium block">Click to replace image</span>
                       </div>
                     ) : (
                       <>
-                        <Upload className="w-8 h-8 text-slate-500 mb-1" />
-                        <span className="text-xs text-slate-300 font-medium">Click to select photo</span>
-                        <span className="text-[10px] text-slate-500">Auto-converts to lightweight WebP (&lt;100KB)</span>
+                        <Upload className="w-8 h-8 text-mute mb-1" />
+                        <span className="text-xs font-medium text-ink">Click to select photo</span>
+                        <span className="text-xs text-mute">Auto-converts to lightweight WebP (&lt;100KB)</span>
                       </>
                     )}
                   </label>
@@ -476,18 +473,18 @@ export default function ProductsPage() {
               </div>
 
               {/* Submit Buttons */}
-              <div className="flex justify-end space-x-3 pt-3 border-t border-slate-800">
+              <div className="flex justify-end space-x-3 pt-3 border-t border-hairline">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-sm font-medium text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700"
+                  className="btn btn-sm btn-secondary"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-5 py-2 rounded-xl text-sm font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center gap-2 shadow-lg shadow-amber-500/20"
+                  className="btn btn-sm btn-primary"
                 >
                   {submitting ? "Saving..." : editingProductId ? "Update Perfume" : "Save Perfume"}
                 </button>

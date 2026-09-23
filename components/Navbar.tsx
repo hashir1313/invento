@@ -2,18 +2,19 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { 
-  LayoutDashboard, 
-  Package, 
-  ShoppingCart, 
-  Boxes, 
+import {
+  LayoutDashboard,
+  Package,
+  ShoppingCart,
+  Boxes,
   FlaskConical,
-  Sparkles,
   LogOut,
   BarChart3,
-  Clock
+  Clock,
+  Store,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -38,58 +39,68 @@ export default function Navbar() {
   }
 
   return (
-    <header className="sticky top-0 z-50 bg-slate-900 border-b border-slate-800 text-white shadow-md">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+    <header className="sticky top-0 z-50 bg-canvas border-b border-hairline">
+      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-14">
           {/* Logo & Brand Name */}
-          <Link href="/" className="flex items-center space-x-3 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center text-slate-950 font-bold shadow-lg shadow-amber-500/20 group-hover:scale-105 transition-transform">
-              <Sparkles className="w-5 h-5 fill-slate-950" />
-            </div>
-            <div>
-              <span className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-amber-300 via-white to-amber-100 bg-clip-text text-transparent">
-                INVENTO
+          <Link href="/" className="flex items-center gap-2.5 group shrink-0">
+            <span className="w-6 h-6 rounded-sm bg-primary flex items-center justify-center">
+              <Store className="w-3.5 h-3.5 text-on-primary" aria-hidden="true" />
+            </span>
+            <span className="flex flex-col leading-none">
+              <span className="text-[15px] font-semibold tracking-[-0.4px] text-ink">
+                Invento
               </span>
-              <span className="block text-[10px] text-amber-400/80 uppercase tracking-widest font-semibold">
+              <span className="eyebrow text-[10px] leading-[14px] mt-0.5">
                 Perfume Inventory
               </span>
-            </div>
+            </span>
           </Link>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center space-x-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150",
-                    isActive
-                      ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
-                      : "text-slate-300 hover:text-white hover:bg-slate-800/60"
-                  )}
-                >
-                  <Icon className={cn("w-4 h-4", isActive ? "text-amber-400" : "text-slate-400")} />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
-            <button
-              onClick={handleLogout}
-              className="flex items-center space-x-2 px-3 py-2 ml-2 rounded-lg text-sm font-medium text-slate-400 hover:text-red-400 hover:bg-slate-800/60 transition-all duration-150"
-              title="Sign out"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          </nav>
+          <div className="flex items-center gap-2">
+            <nav className="hidden md:flex items-center gap-0.5">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname === item.href;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "flex items-center gap-2 px-2.5 py-1.5 rounded-full text-sm transition-colors whitespace-nowrap",
+                      isActive
+                        ? "bg-elevated border border-hairline text-ink font-medium shadow-whisper"
+                        : "text-body hover:text-ink hover:bg-hairline-soft border border-transparent"
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        "w-3.5 h-3.5 shrink-0",
+                        isActive ? "text-ink" : "text-mute"
+                      )}
+                    />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+              <button
+                onClick={handleLogout}
+                className="btn btn-secondary btn-sm ml-1.5"
+                title="Sign out"
+                aria-label="Sign out"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </nav>
+
+            <ThemeToggle />
+          </div>
         </div>
       </div>
 
       {/* Mobile Navigation Bar (Bottom Bar for easy smartphone use) */}
-      <nav className="md:hidden flex justify-around items-center bg-slate-950/90 backdrop-blur-md border-t border-slate-800 py-2 fixed bottom-0 left-0 right-0 z-50">
+      <nav className="md:hidden flex justify-around items-center bg-elevated/90 backdrop-blur-md border-t border-hairline py-1.5 fixed bottom-0 left-0 right-0 z-50">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
@@ -98,21 +109,23 @@ export default function Navbar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center py-1 px-2 text-[11px] font-medium transition-colors",
-                isActive ? "text-amber-400 font-bold" : "text-slate-400 hover:text-slate-200"
+                "flex flex-col items-center py-1 px-2 text-[11px] leading-[14px] rounded-md transition-colors",
+                isActive ? "text-ink font-medium" : "text-mute hover:text-body"
               )}
             >
-              <Icon className={cn("w-5 h-5 mb-0.5", isActive ? "text-amber-400" : "text-slate-400")} />
+              <Icon
+                className={cn("w-4 h-4 mb-1", isActive ? "text-ink" : "text-mute")}
+              />
               <span>{item.label}</span>
             </Link>
           );
         })}
         <button
           onClick={handleLogout}
-          className="flex flex-col items-center py-1 px-2 text-[11px] font-medium text-slate-400 hover:text-red-400 transition-colors"
+          className="flex flex-col items-center py-1 px-2 text-[11px] leading-[14px] text-mute hover:text-error transition-colors"
           title="Sign out"
         >
-          <LogOut className="w-5 h-5 mb-0.5" />
+          <LogOut className="w-4 h-4 mb-1" />
           <span>Logout</span>
         </button>
       </nav>

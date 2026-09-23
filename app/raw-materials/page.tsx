@@ -177,13 +177,11 @@ export default function RawMaterialsPage() {
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-slate-900 p-6 rounded-2xl border border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-white flex items-center gap-2">
-            <Boxes className="w-6 h-6 text-amber-400" />
-            <span>Raw Materials Inventory & Restock Hub</span>
-          </h1>
-          <p className="text-slate-400 text-sm mt-1">
+          <p className="eyebrow mb-3">Inventory / Raw Materials</p>
+          <h1 className="text-h2 text-ink">Raw Materials Inventory & Restock Hub</h1>
+          <p className="text-body text-base leading-6 mt-3 max-w-xl">
             Track fragrance oils, ethanol, bottles, stickers, boxes, and cards. Log incoming shipments ("Got Supply").
           </p>
         </div>
@@ -191,7 +189,7 @@ export default function RawMaterialsPage() {
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setIsRestockModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/20 transition-all"
+            className="btn btn-primary btn-pill"
           >
             <TrendingUp className="w-4 h-4" />
             <span>Got Supply (Restock)</span>
@@ -199,9 +197,9 @@ export default function RawMaterialsPage() {
           
           <button
             onClick={openCreateModal}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-sm border border-slate-700 transition-all shadow-md"
+            className="btn btn-secondary btn-pill"
           >
-            <Plus className="w-4 h-4 text-amber-400" />
+            <Plus className="w-4 h-4" />
             <span>Add New Material</span>
           </button>
         </div>
@@ -218,17 +216,15 @@ export default function RawMaterialsPage() {
               <button
                 key={cat.value}
                 onClick={() => setCategoryFilter(cat.value)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
-                  categoryFilter === cat.value
-                    ? "bg-amber-500 text-slate-950 border-amber-500 shadow-lg shadow-amber-500/20"
-                    : "bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700 hover:text-white"
+                className={`btn btn-sm ${
+                  categoryFilter === cat.value ? "btn-primary" : "btn-secondary"
                 }`}
               >
                 {cat.label}
-                <span className={`ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                <span className={`ml-1.5 px-1.5 py-0.5 rounded-sm text-[10px] font-medium ${
                   categoryFilter === cat.value
-                    ? "bg-slate-950/30 text-slate-950"
-                    : "bg-slate-800 text-slate-400"
+                    ? "bg-on-primary/20 text-on-primary"
+                    : "bg-hairline-soft text-mute"
                 }`}>
                   {count}
                 </span>
@@ -241,96 +237,100 @@ export default function RawMaterialsPage() {
       {/* Materials List Table */}
       {loading ? (
         <div className="text-center py-16">
-          <div className="animate-spin w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full mx-auto mb-3"></div>
-          <p className="text-slate-400 text-sm">Loading raw materials inventory...</p>
+          <div className="animate-spin w-6 h-6 border-2 border-hairline border-t-ink rounded-full mx-auto mb-3"></div>
+          <p className="text-body text-sm">Loading raw materials inventory...</p>
         </div>
       ) : materials.length === 0 ? (
-        <div className="text-center py-16 bg-slate-900 border border-dashed border-slate-800 rounded-2xl">
-          <Boxes className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-          <h3 className="text-lg font-bold text-white">No Raw Materials Defined</h3>
-          <p className="text-slate-400 text-sm max-w-sm mx-auto mt-1">
+        <div className="card border-dashed text-center py-16">
+          <Boxes className="w-12 h-12 text-faint mx-auto mb-3" />
+          <h3 className="text-h3 text-ink">No Raw Materials Defined</h3>
+          <p className="text-body text-sm max-w-sm mx-auto mt-1">
             Add raw materials like fragrance oils, ethanol, bottles, boxes, and cards to track manufacturing stock.
           </p>
           <button
             onClick={openCreateModal}
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 text-slate-950 font-bold text-sm"
+            className="btn btn-sm btn-primary mt-4"
           >
             <Plus className="w-4 h-4" />
             Add First Material
           </button>
         </div>
       ) : filteredMaterials.length === 0 ? (
-        <div className="text-center py-16 bg-slate-900 border border-dashed border-slate-800 rounded-2xl">
-          <Boxes className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-          <h3 className="text-lg font-bold text-white">No Materials in This Category</h3>
-          <p className="text-slate-400 text-sm max-w-sm mx-auto mt-1">
+        <div className="card border-dashed text-center py-16">
+          <Boxes className="w-12 h-12 text-faint mx-auto mb-3" />
+          <h3 className="text-h3 text-ink">No Materials in This Category</h3>
+          <p className="text-body text-sm max-w-sm mx-auto mt-1">
             Add materials to this category or switch to a different filter.
           </p>
         </div>
       ) : (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
+        <div className="card p-0 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="text-xs uppercase bg-slate-950 text-slate-400 border-b border-slate-800">
+            <table className="table">
+              <thead>
                 <tr>
-                  <th className="px-4 py-3.5">Material Name</th>
-                  <th className="px-4 py-3.5">Category</th>
-                  <th className="px-4 py-3.5">Current Stock</th>
-                  <th className="px-4 py-3.5">Min Alert Threshold</th>
-                  <th className="px-4 py-3.5">Cost / Unit</th>
-                  <th className="px-4 py-3.5 text-right">Actions</th>
+                  <th>Material Name</th>
+                  <th>Category</th>
+                  <th>Current Stock</th>
+                  <th>Min Alert Threshold</th>
+                  <th>Cost / Unit</th>
+                  <th className="text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60 text-slate-300">
+              <tbody>
                 {filteredMaterials.map((mat) => {
                   const isLow = mat.current_stock <= mat.min_stock_alert;
                   return (
-                    <tr key={mat.id} className="hover:bg-slate-850/50 transition-colors">
-                      <td className="px-4 py-4 font-bold text-white flex items-center gap-2">
-                        <span>{mat.name}</span>
-                        {isLow && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold bg-rose-500/20 text-rose-300 rounded border border-rose-500/30">
-                            <AlertTriangle className="w-3 h-3" />
-                            LOW STOCK
-                          </span>
-                        )}
+                    <tr key={mat.id}>
+                      <td className="font-medium">
+                        <span className="flex items-center gap-2">
+                          <span>{mat.name}</span>
+                          {isLow && (
+                            <span className="badge badge-error">
+                              <AlertTriangle className="w-3 h-3" />
+                              LOW STOCK
+                            </span>
+                          )}
+                        </span>
                       </td>
-                      <td className="px-4 py-4 text-xs font-semibold text-slate-300">
+                      <td className="text-xs text-body">
                         {MATERIAL_CATEGORY_LABELS[mat.category as keyof typeof MATERIAL_CATEGORY_LABELS] || mat.category}
                       </td>
-                      <td className="px-4 py-4 font-black">
-                        <span className={isLow ? "text-rose-400" : "text-emerald-400"}>
+                      <td className="font-medium tabular-nums">
+                        <span className={isLow ? "text-error" : "text-ink"}>
                           {mat.current_stock} {mat.unit_of_measure}
                         </span>
                       </td>
-                      <td className="px-4 py-4 text-slate-400 text-xs font-semibold">
+                      <td className="text-xs text-mute tabular-nums">
                         {mat.min_stock_alert} {mat.unit_of_measure}
                       </td>
-                      <td className="px-4 py-4 font-bold text-amber-300">
+                      <td className="font-medium tabular-nums">
                         {formatPKR(mat.cost_per_unit)} / {mat.unit_of_measure}
                       </td>
-                      <td className="px-4 py-4 text-right space-x-2">
+                      <td className="text-right">
+                        <div className="flex items-center justify-end gap-2 whitespace-nowrap">
                         <button
                           onClick={() => openEditModal(mat)}
-                          className="px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-semibold text-xs border border-amber-500/30 transition-colors inline-flex items-center gap-1"
+                          className="btn btn-sm btn-secondary"
                         >
                           <Pencil className="w-3.5 h-3.5" />
                           <span>Edit</span>
                         </button>
                         <button
                           onClick={() => openRestockFor(mat)}
-                          className="px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-semibold text-xs border border-amber-500/30 transition-colors inline-flex items-center gap-1"
+                          className="btn btn-sm btn-secondary"
                         >
                           <TrendingUp className="w-3.5 h-3.5" />
                           <span>Got Supply</span>
                         </button>
                         <button
                           onClick={() => handleDelete(mat.id, mat.name)}
-                          className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-colors inline-block"
+                          className="btn btn-sm btn-danger"
                           title="Delete material"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -343,34 +343,34 @@ export default function RawMaterialsPage() {
 
       {/* Add / Edit Material Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+        <div className="modal-overlay">
+          <div className="modal-panel w-full max-w-lg p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-hairline pb-4">
+              <h3 className="text-h3 text-ink flex items-center gap-2">
                 {editingMaterialId ? (
                   <>
-                    <Pencil className="w-5 h-5 text-amber-400" />
+                    <Pencil className="w-4 h-4 text-mute" />
                     <span>Edit Raw Material</span>
                   </>
                 ) : (
                   <>
-                    <Plus className="w-5 h-5 text-amber-400" />
+                    <Plus className="w-4 h-4 text-mute" />
                     <span>Add New Raw Material</span>
                   </>
                 )}
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-white p-1"
+                className="btn btn-sm btn-secondary"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             <form onSubmit={handleAddOrEditSubmit} className="space-y-4">
               {/* Material Name */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                <label className="field-label">
                   Material Name *
                 </label>
                 <input
@@ -379,20 +379,20 @@ export default function RawMaterialsPage() {
                   placeholder="e.g. Vanilla Fragrance Oil, 50ml Glass Bottle, Logo Sticker"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                  className="input"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 {/* Category */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                  <label className="field-label">
                     Category *
                   </label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value as MaterialCategory)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                    className="input"
                   >
                     <option value="OIL">Fragrance Oil</option>
                     <option value="SOLVENT">Solvent / Ethanol</option>
@@ -407,13 +407,13 @@ export default function RawMaterialsPage() {
 
                 {/* Unit of Measure */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                  <label className="field-label">
                     Unit of Measure *
                   </label>
                   <select
                     value={unitOfMeasure}
                     onChange={(e) => setUnitOfMeasure(e.target.value as UnitOfMeasure)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                    className="input"
                   >
                     <option value="ML">Milliliters (ml)</option>
                     <option value="PIECES">Pieces (pcs)</option>
@@ -425,7 +425,7 @@ export default function RawMaterialsPage() {
               <div className="grid grid-cols-3 gap-3">
                 {/* Stock */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                  <label className="field-label">
                     Current Stock *
                   </label>
                   <input
@@ -435,13 +435,13 @@ export default function RawMaterialsPage() {
                     min="0"
                     value={currentStock}
                     onChange={(e) => setCurrentStock(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                    className="input"
                   />
                 </div>
 
                 {/* Min Alert */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                  <label className="field-label">
                     Min Alert *
                   </label>
                   <input
@@ -451,13 +451,13 @@ export default function RawMaterialsPage() {
                     min="0"
                     value={minStockAlert}
                     onChange={(e) => setMinStockAlert(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                    className="input"
                   />
                 </div>
 
                 {/* Cost per unit */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                  <label className="field-label">
                     Cost / Unit (PKR) *
                   </label>
                   <input
@@ -467,24 +467,24 @@ export default function RawMaterialsPage() {
                     min="0"
                     value={costPerUnit}
                     onChange={(e) => setCostPerUnit(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                    className="input"
                   />
                 </div>
               </div>
 
               {/* Form Buttons */}
-              <div className="flex justify-end space-x-3 pt-3 border-t border-slate-800">
+              <div className="flex justify-end space-x-3 pt-3 border-t border-hairline">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-sm font-medium text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700"
+                  className="btn btn-sm btn-secondary"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-5 py-2 rounded-xl text-sm font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center gap-2 shadow-lg shadow-amber-500/20"
+                  className="btn btn-sm btn-primary"
                 >
                   {submitting ? "Saving..." : editingMaterialId ? "Update Material" : "Save Material"}
                 </button>
@@ -496,25 +496,25 @@ export default function RawMaterialsPage() {
 
       {/* "Got Supply" Restock Modal */}
       {isRestockModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-amber-400" />
+        <div className="modal-overlay">
+          <div className="modal-panel w-full max-w-lg p-6 space-y-5">
+            <div className="flex items-center justify-between border-b border-hairline pb-4">
+              <h3 className="text-h3 text-ink flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-mute" />
                 <span>Log Incoming Supply (Restock Intake)</span>
               </h3>
               <button
                 onClick={() => setIsRestockModalOpen(false)}
-                className="text-slate-400 hover:text-white p-1"
+                className="btn btn-sm btn-secondary"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             <form onSubmit={handleRestockSubmit} className="space-y-4">
               {/* Material Select */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                <label className="field-label">
                   Select Raw Material Item *
                 </label>
                 <select
@@ -524,7 +524,7 @@ export default function RawMaterialsPage() {
                     const mat = materials.find((m) => m.id === e.target.value);
                     if (mat) setRestockUnitCost(mat.cost_per_unit || 0);
                   }}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                  className="input"
                 >
                   {materials.map((m) => (
                     <option key={m.id} value={m.id}>
@@ -537,7 +537,7 @@ export default function RawMaterialsPage() {
               <div className="grid grid-cols-2 gap-4">
                 {/* Quantity Received */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                  <label className="field-label">
                     Quantity Received *
                   </label>
                   <input
@@ -547,13 +547,13 @@ export default function RawMaterialsPage() {
                     min="0.1"
                     value={restockQty}
                     onChange={(e) => setRestockQty(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                    className="input"
                   />
                 </div>
 
                 {/* Unit Cost */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                  <label className="field-label">
                     Cost / Unit (PKR) *
                   </label>
                   <input
@@ -563,22 +563,22 @@ export default function RawMaterialsPage() {
                     min="0"
                     value={restockUnitCost}
                     onChange={(e) => setRestockUnitCost(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                    className="input"
                   />
                 </div>
               </div>
 
               {/* Total Spending Preview */}
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
-                <span className="text-xs text-slate-400 font-semibold">Total Shipment Spend:</span>
-                <span className="text-lg font-black text-amber-400">
+              <div className="well p-3 flex justify-between items-center">
+                <span className="text-xs text-mute font-medium">Total Shipment Spend:</span>
+                <span className="text-h3 tabular-nums text-ink">
                   {formatPKR(restockQty * restockUnitCost)}
                 </span>
               </div>
 
               {/* Supplier Name */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                <label className="field-label">
                   Supplier / Vendor Name (Optional)
                 </label>
                 <input
@@ -586,23 +586,23 @@ export default function RawMaterialsPage() {
                   placeholder="e.g. French Fragrance Oil Imports Ltd"
                   value={supplier}
                   onChange={(e) => setSupplier(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                  className="input"
                 />
               </div>
 
               {/* Submit Buttons */}
-              <div className="flex justify-end space-x-3 pt-3 border-t border-slate-800">
+              <div className="flex justify-end space-x-3 pt-3 border-t border-hairline">
                 <button
                   type="button"
                   onClick={() => setIsRestockModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-sm font-medium text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700"
+                  className="btn btn-sm btn-secondary"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-5 py-2 rounded-xl text-sm font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center gap-2 shadow-lg shadow-amber-500/20"
+                  className="btn btn-sm btn-primary"
                 >
                   {submitting ? "Processing..." : "Confirm Restock Intake"}
                 </button>

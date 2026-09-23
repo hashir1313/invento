@@ -1,158 +1,172 @@
 import Link from "next/link";
 import { getDashboardMetrics } from "./actions";
-import { formatPKR, formatDate, PAYMENT_STATUS_COLORS, PAYMENT_OPTION_LABELS } from "@/lib/utils";
-import { 
-  DollarSign, 
-  Clock, 
-  AlertTriangle, 
-  MessageSquare, 
-  PlusCircle, 
-  Package, 
-  Boxes, 
+import {
+  formatPKR,
+  formatDate,
+  PAYMENT_STATUS_COLORS,
+  PAYMENT_OPTION_LABELS,
+} from "@/lib/utils";
+import {
+  DollarSign,
+  Clock,
+  AlertTriangle,
+  MessageSquare,
+  PlusCircle,
+  Package,
+  Boxes,
   CreditCard,
   ArrowRight,
-  Sparkles,
-  Timer
+  Timer,
 } from "lucide-react";
 import MacerationAlertCards from "@/components/MacerationAlertCards";
 
 export const revalidate = 0; // Dynamic server page
 
+function StatIcon({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="w-9 h-9 shrink-0 rounded-sm border border-hairline bg-elevated text-mute flex items-center justify-center">
+      {children}
+    </span>
+  );
+}
+
 export default async function DashboardPage() {
   const metrics = await getDashboardMetrics();
 
   return (
-    <div className="space-y-8">
-      {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white flex items-center gap-3">
-            <span>Executive Dashboard</span>
-            <span className="text-xs bg-amber-500/20 text-amber-300 font-semibold px-2.5 py-1 rounded-full border border-amber-500/30">
-              Live Performance
-            </span>
-          </h1>
-          <p className="text-slate-400 text-sm mt-1">
-            Real-time overview of perfume sales, revenue, receivables, and raw material stock.
-          </p>
-        </div>
+    <div className="space-y-6">
+      {/* Hero band — the one place the mesh gradient is allowed */}
+      <div className="mesh -mx-4 sm:-mx-6 lg:-mx-8 -mt-8 px-4 sm:px-6 lg:px-8 pt-12 pb-10 border-b border-hairline">
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6">
+          <div>
+            <p className="eyebrow mb-3">Dashboard / Live Performance</p>
+            <h1 className="text-h2 text-ink">Executive Dashboard</h1>
+            <p className="text-body text-base leading-6 mt-3 max-w-xl">
+              Real-time overview of perfume sales, revenue, receivables, and raw
+              material stock.
+            </p>
+          </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href="/sales"
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/20 transition-all"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span>Record New Sale</span>
-          </Link>
-          <Link
-            href="/raw-materials"
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-sm border border-slate-700 transition-all"
-          >
-            <Boxes className="w-4 h-4 text-amber-400" />
-            <span>Got Supply</span>
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <Link href="/sales" className="btn btn-primary btn-pill">
+              <PlusCircle className="w-4 h-4" />
+              <span>Record New Sale</span>
+            </Link>
+            <Link href="/raw-materials" className="btn btn-secondary btn-pill">
+              <Boxes className="w-4 h-4" />
+              <span>Got Supply</span>
+            </Link>
+          </div>
         </div>
       </div>
 
       {/* Top 4 Key Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Revenue */}
-        <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-lg relative overflow-hidden group">
-          <div className="flex justify-between items-start">
+        <div className="card">
+          <div className="flex justify-between items-start gap-4">
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Revenue</p>
-              <h3 className="text-2xl font-black text-emerald-400 mt-2">
+              <p className="eyebrow">Total Revenue</p>
+              <h3 className="text-h3 tabular-nums mt-3">
                 {formatPKR(metrics.totalRevenue)}
               </h3>
-              <p className="text-xs text-slate-500 mt-1">Received & Cleared</p>
+              <p className="text-mute text-xs mt-1">Received &amp; Cleared</p>
             </div>
-            <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
-              <DollarSign className="w-6 h-6" />
-            </div>
+            <StatIcon>
+              <DollarSign className="w-4 h-4" />
+            </StatIcon>
           </div>
         </div>
 
-        {/* Pending Receivables */}
-        <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-lg relative overflow-hidden group">
-          <div className="flex justify-between items-start">
+        <div className="card">
+          <div className="flex justify-between items-start gap-4">
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Pending Receivables</p>
-              <h3 className="text-2xl font-black text-amber-400 mt-2">
+              <p className="eyebrow">Pending Receivables</p>
+              <h3 className="text-h3 tabular-nums mt-3">
                 {formatPKR(metrics.pendingReceivables)}
               </h3>
-              <p className="text-xs text-slate-500 mt-1">Payment Pending</p>
+              <p className="text-mute text-xs mt-1">Payment Pending</p>
             </div>
-            <div className="p-3 bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20">
-              <Clock className="w-6 h-6" />
-            </div>
+            <StatIcon>
+              <Clock className="w-4 h-4" />
+            </StatIcon>
           </div>
         </div>
 
-        {/* Low Stock Warnings */}
-        <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-lg relative overflow-hidden group">
-          <div className="flex justify-between items-start">
+        <div className="card">
+          <div className="flex justify-between items-start gap-4">
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Low Stock Alert</p>
-              <h3 className="text-2xl font-black text-rose-400 mt-2">
-                {metrics.lowStockProductCount} Product{metrics.lowStockProductCount === 1 ? "" : "s"}
+              <p className="eyebrow">Low Stock Alert</p>
+              <h3
+                className={`text-h3 tabular-nums mt-3${
+                  metrics.lowStockProductCount > 0 ? " text-error" : ""
+                }`}
+              >
+                {metrics.lowStockProductCount} Product
+                {metrics.lowStockProductCount === 1 ? "" : "s"}
               </h3>
-              <p className="text-xs text-slate-500 mt-1">Perfumes Needing Restock</p>
+              <p className="text-mute text-xs mt-1">Perfumes Needing Restock</p>
             </div>
-            <div className="p-3 bg-rose-500/10 text-rose-400 rounded-xl border border-rose-500/20">
-              <AlertTriangle className="w-6 h-6" />
-            </div>
+            <StatIcon>
+              <AlertTriangle className="w-4 h-4" />
+            </StatIcon>
           </div>
         </div>
 
-        {/* Pending Reviews */}
-        <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-lg relative overflow-hidden group">
-          <div className="flex justify-between items-start">
+        <div className="card">
+          <div className="flex justify-between items-start gap-4">
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Pending Reviews</p>
-              <h3 className="text-2xl font-black text-sky-400 mt-2">
-                {metrics.pendingReviewsCount} Customer{metrics.pendingReviewsCount === 1 ? "" : "s"}
+              <p className="eyebrow">Pending Reviews</p>
+              <h3 className="text-h3 tabular-nums mt-3">
+                {metrics.pendingReviewsCount} Customer
+                {metrics.pendingReviewsCount === 1 ? "" : "s"}
               </h3>
-              <p className="text-xs text-slate-500 mt-1">Awaiting Review Feedback</p>
+              <p className="text-mute text-xs mt-1">Awaiting Review Feedback</p>
             </div>
-            <div className="p-3 bg-sky-500/10 text-sky-400 rounded-xl border border-sky-500/20">
-              <MessageSquare className="w-6 h-6" />
-            </div>
+            <StatIcon>
+              <MessageSquare className="w-4 h-4" />
+            </StatIcon>
           </div>
         </div>
       </div>
 
       {/* Revenue Breakdown by Payment Method */}
-      <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-lg">
-        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
-          <CreditCard className="w-5 h-5 text-amber-400" />
-          <span>Revenue Breakdown by Payment Option</span>
-        </h2>
+      <div className="card">
+        <div className="flex items-center gap-2 mb-5">
+          <CreditCard className="w-4 h-4 text-mute" />
+          <h2 className="text-h3">Revenue Breakdown by Payment Option</h2>
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {Object.entries(metrics.paymentOptionBreakdown).map(([method, amount]) => (
-            <div key={method} className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-              <p className="text-xs text-slate-400 font-semibold uppercase">
-                {PAYMENT_OPTION_LABELS[method as keyof typeof PAYMENT_OPTION_LABELS] || method}
-              </p>
-              <p className="text-xl font-bold text-white mt-1">
-                {formatPKR(amount)}
-              </p>
-            </div>
-          ))}
+          {Object.entries(metrics.paymentOptionBreakdown).map(
+            ([method, amount]) => (
+              <div key={method} className="well p-4">
+                <p className="eyebrow">
+                  {PAYMENT_OPTION_LABELS[
+                    method as keyof typeof PAYMENT_OPTION_LABELS
+                  ] || method}
+                </p>
+                <p className="text-h3 tabular-nums mt-2">
+                  {formatPKR(amount)}
+                </p>
+              </div>
+            )
+          )}
         </div>
       </div>
 
       {/* Low Stock Product Warnings Section */}
       {metrics.lowStockProducts.length > 0 && (
-        <div className="bg-rose-950/40 border border-rose-900/60 p-6 rounded-2xl shadow-lg">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-rose-300 flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-rose-400" />
-              <span>Critical Low Stock Perfumes</span>
-            </h2>
+        <div className="card border-error/30">
+          <div className="flex items-center justify-between gap-4 mb-5">
+            <div className="flex items-center gap-3">
+              <span className="badge badge-error">
+                <AlertTriangle className="w-3 h-3" />
+                Action needed
+              </span>
+              <h2 className="text-h3">Critical Low Stock Perfumes</h2>
+            </div>
             <Link
               href="/batch-production-v2"
-              className="text-xs text-rose-300 hover:text-white font-medium flex items-center gap-1"
+              className="text-link hover:text-link-deep text-sm font-medium flex items-center gap-1 shrink-0"
             >
               <span>Produce Now</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -162,16 +176,18 @@ export default async function DashboardPage() {
             {metrics.lowStockProducts.map((product: any) => (
               <div
                 key={product.id}
-                className="bg-slate-950/80 p-3.5 rounded-xl border border-rose-900/40 flex justify-between items-center"
+                className="card-sm flex justify-between items-center gap-3"
               >
                 <div>
-                  <p className="font-semibold text-white text-sm">{product.name}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-sm font-medium text-ink">
+                    {product.name}
+                  </p>
+                  <p className="text-xs text-mute mt-0.5">
                     {product.perfume_quantity_ml}ml — {formatPKR(product.price)}
                   </p>
                 </div>
                 <div className="text-right">
-                  <span className="inline-block px-2.5 py-1 text-xs font-bold bg-rose-500/20 text-rose-300 rounded-lg border border-rose-500/30">
+                  <span className="badge badge-error tabular-nums">
                     {product.stock} bottle{product.stock === 1 ? "" : "s"}
                   </span>
                 </div>
@@ -183,40 +199,47 @@ export default async function DashboardPage() {
 
       {/* Maceration Complete Alerts Section */}
       {metrics.completedMacerationsCount > 0 && (
-        <div className="bg-amber-950/40 border border-amber-900/60 p-6 rounded-2xl shadow-lg">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-amber-300 flex items-center gap-2">
-              <Timer className="w-5 h-5 text-amber-400" />
-              <span>Maceration Complete — Action Required</span>
-            </h2>
+        <div className="card border-warning/50">
+          <div className="flex items-center justify-between gap-4 mb-3">
+            <div className="flex items-center gap-3">
+              <span className="badge badge-warning">
+                <Timer className="w-3 h-3" />
+                Ready
+              </span>
+              <h2 className="text-h3">Maceration Complete — Action Required</h2>
+            </div>
             <Link
               href="/maceration"
-              className="text-xs text-amber-300 hover:text-white font-medium flex items-center gap-1"
+              className="text-link hover:text-link-deep text-sm font-medium flex items-center gap-1 shrink-0"
             >
               <span>Manage Maceration</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
-          <p className="text-sm text-amber-200/80 mb-4">
-            {metrics.completedMacerationsCount} batch{metrics.completedMacerationsCount !== 1 ? "es" : ""} have completed maceration. Add to stock or extend the period.
+          <p className="text-sm text-body mb-5">
+            {metrics.completedMacerationsCount} batch
+            {metrics.completedMacerationsCount !== 1 ? "es" : ""} have completed
+            maceration. Add to stock or extend the period.
           </p>
           <MacerationAlertCards items={metrics.completedMacerations} />
         </div>
       )}
 
       {/* Recent Sales Overview Table */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-lg p-6">
-        <div className="flex items-center justify-between mb-6">
+      <div className="card p-0 overflow-hidden">
+        <div className="flex items-center justify-between gap-4 px-6 pt-6 pb-5">
           <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <Package className="w-5 h-5 text-amber-400" />
-              <span>Recent Sales Activity</span>
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">Latest customer perfume orders</p>
+            <div className="flex items-center gap-2">
+              <Package className="w-4 h-4 text-mute" />
+              <h2 className="text-h3">Recent Sales Activity</h2>
+            </div>
+            <p className="text-xs text-mute mt-1">
+              Latest customer perfume orders
+            </p>
           </div>
           <Link
             href="/sales"
-            className="text-xs text-amber-400 hover:text-amber-300 font-semibold flex items-center gap-1"
+            className="text-link hover:text-link-deep text-sm font-medium flex items-center gap-1 shrink-0"
           >
             <span>View All Sales</span>
             <ArrowRight className="w-4 h-4" />
@@ -224,52 +247,59 @@ export default async function DashboardPage() {
         </div>
 
         {metrics.recentSales.length === 0 ? (
-          <div className="text-center py-10 border border-dashed border-slate-800 rounded-xl">
-            <Sparkles className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-            <p className="text-slate-400 text-sm">No sales recorded yet.</p>
-            <Link
-              href="/sales"
-              className="inline-block mt-3 px-4 py-2 text-xs font-semibold bg-amber-500 text-slate-950 rounded-lg"
-            >
+          <div className="text-center py-12 border-t border-hairline">
+            <Package className="w-6 h-6 text-faint mx-auto mb-3" />
+            <p className="text-body text-sm">No sales recorded yet.</p>
+            <Link href="/sales" className="btn btn-primary btn-sm mt-4">
               Record First Sale
             </Link>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="text-xs uppercase bg-slate-950 text-slate-400 border-b border-slate-800">
+          <div className="overflow-x-auto border-t border-hairline">
+            <table className="table">
+              <thead>
                 <tr>
-                  <th className="px-4 py-3">Customer</th>
-                  <th className="px-4 py-3">Perfume Item</th>
-                  <th className="px-4 py-3">Qty</th>
-                  <th className="px-4 py-3">Total Price</th>
-                  <th className="px-4 py-3">Payment Method</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Date</th>
+                  <th>Customer</th>
+                  <th>Perfume Item</th>
+                  <th>Qty</th>
+                  <th>Total Price</th>
+                  <th>Payment Method</th>
+                  <th>Status</th>
+                  <th>Date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60 text-slate-300">
+              <tbody>
                 {metrics.recentSales.map((sale: any) => (
-                  <tr key={sale.id} className="hover:bg-slate-850/50 transition-colors">
-                    <td className="px-4 py-3.5 font-semibold text-white">{sale.customer_name}</td>
-                    <td className="px-4 py-3.5 text-amber-300 font-medium">{sale.product?.name || "Product"}</td>
-                    <td className="px-4 py-3.5 font-bold">{sale.quantity}</td>
-                    <td className="px-4 py-3.5 font-bold text-white">{formatPKR(sale.total_price)}</td>
-                    <td className="px-4 py-3.5">
-                      <span className="px-2.5 py-1 text-xs bg-slate-800 text-slate-300 rounded-md font-medium">
-                        {PAYMENT_OPTION_LABELS[sale.payment_option as keyof typeof PAYMENT_OPTION_LABELS] || sale.payment_option}
+                  <tr key={sale.id}>
+                    <td className="font-medium">{sale.customer_name}</td>
+                    <td className="text-body">
+                      {sale.product?.name || "Product"}
+                    </td>
+                    <td className="tabular-nums">{sale.quantity}</td>
+                    <td className="font-medium tabular-nums">
+                      {formatPKR(sale.total_price)}
+                    </td>
+                    <td className="text-body">
+                      <span className="badge badge-neutral">
+                        {PAYMENT_OPTION_LABELS[
+                          sale.payment_option as keyof typeof PAYMENT_OPTION_LABELS
+                        ] || sale.payment_option}
                       </span>
                     </td>
-                    <td className="px-4 py-3.5">
+                    <td>
                       <span
-                        className={`px-2.5 py-1 text-xs font-bold rounded-lg border ${
-                          PAYMENT_STATUS_COLORS[sale.payment_status as keyof typeof PAYMENT_STATUS_COLORS] || ""
+                        className={`badge ${
+                          PAYMENT_STATUS_COLORS[
+                            sale.payment_status as keyof typeof PAYMENT_STATUS_COLORS
+                          ] || ""
                         }`}
                       >
                         {sale.payment_status}
                       </span>
                     </td>
-                    <td className="px-4 py-3.5 text-slate-400 text-xs">{formatDate(sale.date_purchased)}</td>
+                    <td className="text-mute text-xs">
+                      {formatDate(sale.date_purchased)}
+                    </td>
                   </tr>
                 ))}
               </tbody>

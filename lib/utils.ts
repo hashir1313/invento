@@ -23,9 +23,9 @@ export function formatDate(dateInput: Date | string): string {
 }
 
 export const PAYMENT_STATUS_COLORS = {
-  PENDING: "bg-amber-100 text-amber-800 border-amber-300",
-  PAYED: "bg-emerald-100 text-emerald-800 border-emerald-300",
-  REFUNDED: "bg-rose-100 text-rose-800 border-rose-300",
+  PENDING: "badge-warning",
+  PAYED: "badge-success",
+  REFUNDED: "badge-error",
 };
 
 export const PAYMENT_OPTION_LABELS = {

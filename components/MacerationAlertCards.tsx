@@ -71,13 +71,13 @@ export default function MacerationAlertCards({ items }: { items: MacerationEntry
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {items.map((m) => (
-          <div
-            key={m.id}
-            className="bg-slate-950/80 p-4 rounded-xl border border-amber-900/40 flex flex-col gap-3"
-          >
+          <div key={m.id} className="card-sm flex flex-col gap-3">
             <div>
-              <p className="font-semibold text-white text-sm">{m.product?.name}</p>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-medium text-ink">{m.product?.name}</p>
+                <span className="badge badge-warning shrink-0">Complete</span>
+              </div>
+              <p className="text-xs text-mute mt-0.5">
                 {m.batch_quantity} bottle{m.batch_quantity !== 1 ? "s" : ""} — Ended{" "}
                 {formatDate(m.end_date)}
               </p>
@@ -86,7 +86,7 @@ export default function MacerationAlertCards({ items }: { items: MacerationEntry
               <button
                 disabled={busy}
                 onClick={() => handleAddToStock(m.id)}
-                className="flex-1 py-2 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                className="btn btn-sm btn-primary flex-1"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 Add to Stock
@@ -94,7 +94,7 @@ export default function MacerationAlertCards({ items }: { items: MacerationEntry
               <button
                 disabled={busy}
                 onClick={() => openExtend(m.id)}
-                className="flex-1 py-2 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                className="btn btn-sm btn-secondary flex-1"
               >
                 <Clock className="w-3.5 h-3.5" />
                 Extend
@@ -106,9 +106,9 @@ export default function MacerationAlertCards({ items }: { items: MacerationEntry
 
       {/* Extend Modal */}
       {extendId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl">
-            <h3 className="text-lg font-bold text-white mb-4">Extend Maceration Period</h3>
+        <div className="modal-overlay">
+          <div className="modal-panel w-full max-w-md p-6">
+            <h3 className="text-h3 text-ink mb-4">Extend Maceration Period</h3>
             <div className="space-y-4">
               <CalendarDatePicker
                 label="New End Date"
@@ -119,14 +119,14 @@ export default function MacerationAlertCards({ items }: { items: MacerationEntry
               <div className="flex gap-3">
                 <button
                   onClick={() => setExtendId(null)}
-                  className="flex-1 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm border border-slate-700 transition-all"
+                  className="btn btn-sm btn-secondary flex-1"
                 >
                   Cancel
                 </button>
                 <button
                   disabled={busy || !newEndDate}
                   onClick={handleExtend}
-                  className="flex-1 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-bold text-sm transition-all"
+                  className="btn btn-sm btn-primary flex-1"
                 >
                   {busy ? "Saving..." : "Extend Period"}
                 </button>

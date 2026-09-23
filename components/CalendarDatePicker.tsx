@@ -108,35 +108,35 @@ export default function CalendarDatePicker({
   return (
     <div ref={containerRef} className="relative">
       {label && (
-        <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+        <label className="field-label">
           {label}{required && " *"}
         </label>
       )}
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-left text-white text-sm focus:outline-none focus:border-amber-500 font-semibold flex items-center gap-3 hover:border-slate-700 transition-colors"
+        className="input flex items-center gap-2 text-left hover:border-faint"
       >
-        <Calendar className="w-4 h-4 text-amber-400 shrink-0" />
-        <span className="flex-1">
+        <Calendar className="w-4 h-4 text-mute shrink-0" />
+        <span className={`flex-1 ${value ? "text-ink" : "text-faint"}`}>
           {value
             ? selected.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })
             : "Select date..."
           }
         </span>
         <ChevronLeft
-          className={`w-3.5 h-3.5 text-slate-500 transition-transform ${open ? "rotate-[-90deg]" : "rotate-90"}`}
+          className={`w-3.5 h-3.5 text-mute transition-transform ${open ? "rotate-[-90deg]" : "rotate-90"}`}
         />
       </button>
 
       {open && (
-        <div className="absolute z-50 mt-2 w-full bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-4 animate-in fade-in slide-in-from-top-2">
+        <div className="popover absolute z-50 mt-2 w-full p-4">
           {/* Header */}
           <div className="flex items-center justify-between mb-3">
             <button
               type="button"
               onClick={prevMonth}
-              className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+              className="p-1.5 rounded-sm text-mute hover:text-ink hover:bg-hairline-soft transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -144,7 +144,7 @@ export default function CalendarDatePicker({
               <select
                 value={viewMonth}
                 onChange={(e) => setViewMonth(Number(e.target.value))}
-                className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-white text-xs font-semibold focus:outline-none focus:border-amber-500"
+                className="bg-elevated border border-hairline rounded-sm px-2 py-1 text-xs font-medium text-ink focus:outline-none focus:border-link"
               >
                 {MONTHS.map((m, i) => (
                   <option key={i} value={i}>{m}</option>
@@ -153,7 +153,7 @@ export default function CalendarDatePicker({
               <select
                 value={viewYear}
                 onChange={(e) => setViewYear(Number(e.target.value))}
-                className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-white text-xs font-semibold focus:outline-none focus:border-amber-500 w-[70px]"
+                className="bg-elevated border border-hairline rounded-sm px-2 py-1 text-xs font-medium text-ink focus:outline-none focus:border-link w-[70px]"
               >
                 {Array.from({ length: 21 }, (_, i) => today.getFullYear() - 5 + i).map((y) => (
                   <option key={y} value={y}>{y}</option>
@@ -163,7 +163,7 @@ export default function CalendarDatePicker({
             <button
               type="button"
               onClick={nextMonth}
-              className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+              className="p-1.5 rounded-sm text-mute hover:text-ink hover:bg-hairline-soft transition-colors"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -172,7 +172,7 @@ export default function CalendarDatePicker({
           {/* Day names */}
           <div className="grid grid-cols-7 gap-1 mb-1">
             {DAYS.map((d) => (
-              <div key={d} className="text-center text-[10px] font-bold text-slate-500 uppercase py-1">
+              <div key={d} className="text-center text-[10px] font-medium text-mute uppercase py-1 font-mono">
                 {d}
               </div>
             ))}
@@ -197,10 +197,14 @@ export default function CalendarDatePicker({
                   disabled={isPast}
                   onClick={() => selectDate(day)}
                   className={`
-                    relative w-full aspect-square rounded-lg flex items-center justify-center text-xs font-semibold transition-all
-                    ${isPast ? "text-slate-700 cursor-not-allowed" : "text-slate-300 hover:bg-slate-800 hover:text-white cursor-pointer"}
-                    ${isSelected ? "bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-lg shadow-amber-500/20" : ""}
-                    ${isToday && !isSelected ? "ring-1 ring-amber-500/50 text-amber-400" : ""}
+                    relative w-full aspect-square rounded-sm flex items-center justify-center text-xs transition-colors
+                    ${isPast ? "text-faint cursor-not-allowed" : "cursor-pointer"}
+                    ${isSelected
+                      ? "bg-primary text-on-primary font-medium"
+                      : isToday
+                        ? "text-link font-medium ring-1 ring-link/40"
+                        : "text-body hover:bg-hairline-soft hover:text-ink"
+                    }
                   `}
                 >
                   {day}
@@ -210,11 +214,11 @@ export default function CalendarDatePicker({
           </div>
 
           {/* Today button */}
-          <div className="mt-3 pt-3 border-t border-slate-800 flex justify-center">
+          <div className="mt-3 pt-3 border-t border-hairline flex justify-center">
             <button
               type="button"
               onClick={goToToday}
-              className="text-xs font-semibold text-amber-400 hover:text-amber-300 transition-colors"
+              className="text-xs font-medium text-link hover:text-link-deep transition-colors"
             >
               Today
             </button>

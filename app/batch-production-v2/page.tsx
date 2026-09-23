@@ -153,41 +153,42 @@ export default function BatchProductionV2Page() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800">
-        <h1 className="text-2xl font-extrabold text-white flex items-center gap-2">
-          <FlaskConical className="w-6 h-6 text-amber-400" />
+      <div>
+        <p className="eyebrow mb-3">Production / Batch Production</p>
+        <h1 className="text-h2 text-ink flex items-center gap-2">
+          <FlaskConical className="w-6 h-6 text-mute" />
           <span>Batch Production</span>
         </h1>
-        <p className="text-slate-400 text-sm mt-1">
+        <p className="text-body text-sm mt-2 max-w-xl">
           Select a perfume, choose production mode, set concentration — oil and ethanol are calculated automatically.
         </p>
       </div>
 
       {loading ? (
         <div className="text-center py-16">
-          <div className="animate-spin w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full mx-auto mb-3"></div>
-          <p className="text-slate-400 text-sm">Loading...</p>
+          <div className="animate-spin w-6 h-6 border-2 border-hairline border-t-ink rounded-full mx-auto mb-3"></div>
+          <p className="text-mute text-sm">Loading...</p>
         </div>
       ) : products.length === 0 ? (
-        <div className="text-center py-16 bg-slate-900 border border-dashed border-slate-800 rounded-2xl">
-          <Package className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-          <h3 className="text-lg font-bold text-white">No Products Available</h3>
-          <p className="text-slate-400 text-sm">Add perfume products first.</p>
+        <div className="text-center py-16 card border-dashed">
+          <Package className="w-12 h-12 text-faint mx-auto mb-3" />
+          <h3 className="text-h3">No Products Available</h3>
+          <p className="text-body text-sm mt-1">Add perfume products first.</p>
         </div>
       ) : (
         <form onSubmit={handleProduce} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Form */}
           <div className="lg:col-span-2 space-y-5">
             {/* 1. Select Perfume */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-lg space-y-4">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2">
+            <div className="card space-y-4">
+              <h2 className="eyebrow flex items-center gap-2">
                 <Package className="w-4 h-4" />
                 <span>1. Select Perfume</span>
               </h2>
               <select
                 value={selectedProductId}
                 onChange={(e) => setSelectedProductId(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500 font-semibold"
+                className="input"
               >
                 {products.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -198,8 +199,8 @@ export default function BatchProductionV2Page() {
             </div>
 
             {/* 2. Production Mode + Quantity + Concentration */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-lg space-y-4">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2">
+            <div className="card space-y-4">
+              <h2 className="eyebrow flex items-center gap-2">
                 <Zap className="w-4 h-4" />
                 <span>2. Production Settings</span>
               </h2>
@@ -209,52 +210,52 @@ export default function BatchProductionV2Page() {
                 <button
                   type="button"
                   onClick={() => setProductionMode("bottle")}
-                  className={`p-4 rounded-xl border-2 text-left transition-all ${
+                  className={`p-4 rounded-md border-2 text-left transition-all ${
                     productionMode === "bottle"
-                      ? "border-amber-500 bg-amber-500/10"
-                      : "border-slate-700 bg-slate-950 hover:border-slate-600"
+                      ? "border-ink bg-elevated shadow-whisper"
+                      : "border-hairline bg-elevated hover:border-mute"
                   }`}
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <Package
-                      className={`w-5 h-5 ${productionMode === "bottle" ? "text-amber-400" : "text-slate-400"}`}
+                      className={`w-5 h-5 ${productionMode === "bottle" ? "text-ink" : "text-mute"}`}
                     />
                     <span
-                      className={`text-sm font-bold ${productionMode === "bottle" ? "text-white" : "text-slate-300"}`}
+                      className={`text-sm font-semibold ${productionMode === "bottle" ? "text-ink" : "text-body"}`}
                     >
                       Bottle Production
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-400">Produce a specific number of bottles (pieces)</p>
+                  <p className="text-xs text-mute">Produce a specific number of bottles (pieces)</p>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setProductionMode("mass")}
-                  className={`p-4 rounded-xl border-2 text-left transition-all ${
+                  className={`p-4 rounded-md border-2 text-left transition-all ${
                     productionMode === "mass"
-                      ? "border-amber-500 bg-amber-500/10"
-                      : "border-slate-700 bg-slate-950 hover:border-slate-600"
+                      ? "border-ink bg-elevated shadow-whisper"
+                      : "border-hairline bg-elevated hover:border-mute"
                   }`}
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <Droplets
-                      className={`w-5 h-5 ${productionMode === "mass" ? "text-amber-400" : "text-slate-400"}`}
+                      className={`w-5 h-5 ${productionMode === "mass" ? "text-ink" : "text-mute"}`}
                     />
                     <span
-                      className={`text-sm font-bold ${productionMode === "mass" ? "text-white" : "text-slate-300"}`}
+                      className={`text-sm font-semibold ${productionMode === "mass" ? "text-ink" : "text-body"}`}
                     >
                       Mass Production
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-400">Produce perfume in bulk milliliters (ml)</p>
+                  <p className="text-xs text-mute">Produce perfume in bulk milliliters (ml)</p>
                 </button>
               </div>
 
               {/* Quantity + Concentration */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                  <label className="field-label">
                     {productionMode === "bottle" ? "Number of Bottles (pcs)" : "Total Volume (ml)"} *
                   </label>
                   <input
@@ -264,11 +265,11 @@ export default function BatchProductionV2Page() {
                     step="1"
                     value={quantity}
                     onChange={(e) => setQuantity(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500 font-bold text-lg"
+                    className="input tabular-nums"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                  <label className="field-label">
                     Concentration (%) *
                   </label>
                   <input
@@ -279,19 +280,19 @@ export default function BatchProductionV2Page() {
                     step="1"
                     value={concentration}
                     onChange={(e) => setConcentration(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500 font-bold text-lg"
+                    className="input tabular-nums"
                   />
-                  <p className="text-[11px] text-slate-500 mt-1">
+                  <p className="text-xs text-mute mt-1">
                     {concentration}% oil, {100 - concentration}% ethanol
                   </p>
                 </div>
               </div>
 
               {/* Maceration Period */}
-              <div className="border-t border-slate-800 pt-4 mt-4">
+              <div className="border-t border-hairline pt-4 mt-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <Clock className="w-4 h-4 text-amber-400" />
-                  <label className="text-xs font-semibold text-slate-300 uppercase">
+                  <Clock className="w-4 h-4 text-mute" />
+                  <label className="eyebrow">
                     Maceration Period (Days)
                   </label>
                 </div>
@@ -303,14 +304,14 @@ export default function BatchProductionV2Page() {
                     step="1"
                     value={macerationDays}
                     onChange={(e) => setMacerationDays(Number(e.target.value))}
-                    className="flex-1 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                    className="flex-1 h-2 bg-hairline rounded-full appearance-none cursor-pointer accent-primary"
                   />
-                  <div className="w-20 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-center">
-                    <span className="text-lg font-bold text-white">{macerationDays}</span>
-                    <span className="text-[10px] text-slate-400 block">days</span>
+                  <div className="w-20 well px-3 py-2 text-center">
+                    <span className="text-lg font-semibold tabular-nums text-ink">{macerationDays}</span>
+                    <span className="text-[10px] text-mute block">days</span>
                   </div>
                 </div>
-                <p className="text-[11px] text-slate-500 mt-2">
+                <p className="text-xs text-mute mt-2">
                   {macerationDays === 0
                     ? "No maceration — product goes directly to available stock"
                     : `Product will macerate for ${macerationDays} day${macerationDays !== 1 ? "s" : ""} before becoming available`}
@@ -319,34 +320,34 @@ export default function BatchProductionV2Page() {
             </div>
 
             {/* 3. Auto-Calculated Ingredients */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-lg space-y-4">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2">
+            <div className="card space-y-4">
+              <h2 className="eyebrow flex items-center gap-2">
                 <Droplets className="w-4 h-4" />
                 <span>3. Auto-Calculated Ingredients</span>
               </h2>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                  <span className="text-xs text-slate-400 font-semibold block mb-1">Fragrance Oil Needed</span>
-                  <span className={`text-2xl font-extrabold ${oilInsufficient ? "text-rose-400" : "text-amber-300"}`}>
+                <div className="well p-4">
+                  <span className="eyebrow block mb-1">Fragrance Oil Needed</span>
+                  <span className={`text-2xl font-semibold tabular-nums ${oilInsufficient ? "text-error" : "text-ink"}`}>
                     {oilGrams} g
                   </span>
                   {oilMaterial && (
-                    <p className={`text-[11px] mt-1 ${oilInsufficient ? "text-rose-400" : "text-slate-500"}`}>
+                    <p className={`text-xs mt-1 ${oilInsufficient ? "text-error" : "text-mute"}`}>
                       Available: {oilMaterial.current_stock} g
                       {oilInsufficient && " — INSUFFICIENT"}
                     </p>
                   )}
                 </div>
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                  <span className="text-xs text-slate-400 font-semibold block mb-1">Ethanol Needed</span>
+                <div className="well p-4">
+                  <span className="eyebrow block mb-1">Ethanol Needed</span>
                   <span
-                    className={`text-2xl font-extrabold ${ethanolInsufficient ? "text-rose-400" : "text-amber-300"}`}
+                    className={`text-2xl font-semibold tabular-nums ${ethanolInsufficient ? "text-error" : "text-ink"}`}
                   >
                     {ethanolMl} ml
                   </span>
                   {ethanolMaterial && (
-                    <p className={`text-[11px] mt-1 ${ethanolInsufficient ? "text-rose-400" : "text-slate-500"}`}>
+                    <p className={`text-xs mt-1 ${ethanolInsufficient ? "text-error" : "text-mute"}`}>
                       Available: {ethanolMaterial.current_stock} ml
                       {ethanolInsufficient && " — INSUFFICIENT"}
                     </p>
@@ -355,27 +356,27 @@ export default function BatchProductionV2Page() {
               </div>
 
               {productionMode === "mass" && selectedProduct && (
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-mute">
                   From {totalMl}ml of {selectedProduct.perfume_quantity_ml}ml perfume ={" "}
-                  <strong className="text-white">{bottlesProduced} full bottles</strong> produced
+                  <strong className="text-ink font-semibold">{bottlesProduced} full bottles</strong> produced
                 </p>
               )}
             </div>
 
             {/* 4. Material Selection */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-lg space-y-4">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2">
+            <div className="card space-y-4">
+              <h2 className="eyebrow flex items-center gap-2">
                 <Boxes className="w-4 h-4" />
                 <span>4. Select Materials</span>
               </h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Fragrance Oil *</label>
+                  <label className="field-label">Fragrance Oil *</label>
                   <select
                     value={oilMaterialId}
                     onChange={(e) => setOilMaterialId(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                    className="input"
                   >
                     {oils.map((m) => (
                       <option key={m.id} value={m.id}>
@@ -386,13 +387,13 @@ export default function BatchProductionV2Page() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                  <label className="field-label">
                     Solvent / Ethanol *
                   </label>
                   <select
                     value={ethanolMaterialId}
                     onChange={(e) => setEthanolMaterialId(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                    className="input"
                   >
                     {solvents.map((m) => (
                       <option key={m.id} value={m.id}>
@@ -403,11 +404,11 @@ export default function BatchProductionV2Page() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Glass Bottle</label>
+                  <label className="field-label">Glass Bottle</label>
                   <select
                     value={bottleMaterialId}
                     onChange={(e) => setBottleMaterialId(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                    className="input"
                   >
                     <option value="">— None —</option>
                     {bottles.map((m) => (
@@ -422,11 +423,11 @@ export default function BatchProductionV2Page() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Packaging Box</label>
+                  <label className="field-label">Packaging Box</label>
                   <select
                     value={boxMaterialId}
                     onChange={(e) => setBoxMaterialId(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                    className="input"
                   >
                     <option value="">— None —</option>
                     {boxes.map((m) => (
@@ -441,11 +442,11 @@ export default function BatchProductionV2Page() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Packaging Sticker</label>
+                  <label className="field-label">Packaging Sticker</label>
                   <select
                     value={stickerMaterialId}
                     onChange={(e) => setStickerMaterialId(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500"
+                    className="input"
                   >
                     <option value="">— None —</option>
                     {stickers.map((m) => (
@@ -465,7 +466,7 @@ export default function BatchProductionV2Page() {
             <button
               type="submit"
               disabled={submitting || !canProduce}
-              className="w-full py-4 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition-all"
+              className="btn btn-primary w-full"
             >
               {macerationDays > 0 ? (
                 <>
@@ -486,108 +487,108 @@ export default function BatchProductionV2Page() {
           </div>
 
           {/* Summary Sidebar */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-lg space-y-4 h-fit">
-            <h3 className="text-base font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-3">
-              <Zap className="w-5 h-5 text-amber-400" />
+          <div className="card space-y-4 h-fit">
+            <h3 className="text-h3 flex items-center gap-2 border-b border-hairline pb-3">
+              <Zap className="w-5 h-5 text-mute" />
               <span>Production Summary</span>
             </h3>
 
             <div className="space-y-3 text-sm">
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
-                <span className="text-xs text-slate-400 font-semibold">Perfume</span>
-                <span className="font-bold text-white text-right text-xs">
+              <div className="well p-3 flex justify-between items-center">
+                <span className="text-xs text-mute">Perfume</span>
+                <span className="font-medium text-ink text-right text-xs">
                   {selectedProduct?.name || "—"}
                 </span>
               </div>
 
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
-                <span className="text-xs text-slate-400 font-semibold">Mode</span>
-                <span className="font-bold text-white text-xs">
+              <div className="well p-3 flex justify-between items-center">
+                <span className="text-xs text-mute">Mode</span>
+                <span className="font-medium text-ink text-xs">
                   {productionMode === "bottle" ? "Bottle (pcs)" : "Mass (ml)"}
                 </span>
               </div>
 
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
-                <span className="text-xs text-slate-400 font-semibold">
+              <div className="well p-3 flex justify-between items-center">
+                <span className="text-xs text-mute">
                   {productionMode === "bottle" ? "Bottles" : "Volume"}
                 </span>
-                <span className="font-bold text-white text-xs">
+                <span className="font-medium tabular-nums text-ink text-xs">
                   {quantity} {productionMode === "bottle" ? "pcs" : "ml"}
                 </span>
               </div>
 
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
-                <span className="text-xs text-slate-400 font-semibold">Concentration</span>
-                <span className="font-bold text-white text-xs">{concentration}%</span>
+              <div className="well p-3 flex justify-between items-center">
+                <span className="text-xs text-mute">Concentration</span>
+                <span className="font-medium tabular-nums text-ink text-xs">{concentration}%</span>
               </div>
 
-              <div className="border-t border-slate-800 pt-3 space-y-2">
+              <div className="border-t border-hairline pt-3 space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-slate-400">Total Perfume Volume</span>
-                  <span className="font-bold text-amber-300">{totalMl} ml</span>
+                  <span className="text-xs text-mute">Total Perfume Volume</span>
+                  <span className="text-sm font-semibold tabular-nums text-ink">{totalMl} ml</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-slate-400">Oil Required</span>
-                  <span className={`font-bold ${oilInsufficient ? "text-rose-400" : "text-amber-300"}`}>
+                  <span className="text-xs text-mute">Oil Required</span>
+                  <span className={`text-sm font-semibold tabular-nums ${oilInsufficient ? "text-error" : "text-ink"}`}>
                     {oilGrams} g
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-slate-400">Ethanol Required</span>
-                  <span className={`font-bold ${ethanolInsufficient ? "text-rose-400" : "text-amber-300"}`}>
+                  <span className="text-xs text-mute">Ethanol Required</span>
+                  <span className={`text-sm font-semibold tabular-nums ${ethanolInsufficient ? "text-error" : "text-ink"}`}>
                     {ethanolMl} ml
                   </span>
                 </div>
                 {bottleMaterialId && (
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-slate-400">Bottles Needed</span>
-                    <span className={`font-bold ${bottleInsufficient ? "text-rose-400" : "text-amber-300"}`}>
+                    <span className="text-xs text-mute">Bottles Needed</span>
+                    <span className={`text-sm font-semibold tabular-nums ${bottleInsufficient ? "text-error" : "text-ink"}`}>
                       {bottlesProduced} pcs
                     </span>
                   </div>
                 )}
                 {boxMaterialId && (
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-slate-400">Boxes Needed</span>
-                    <span className={`font-bold ${boxInsufficient ? "text-rose-400" : "text-amber-300"}`}>
+                    <span className="text-xs text-mute">Boxes Needed</span>
+                    <span className={`text-sm font-semibold tabular-nums ${boxInsufficient ? "text-error" : "text-ink"}`}>
                       {bottlesProduced} pcs
                     </span>
                   </div>
                 )}
                 {stickerMaterialId && (
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-slate-400">Stickers Needed</span>
-                    <span className={`font-bold ${stickerInsufficient ? "text-rose-400" : "text-amber-300"}`}>
+                    <span className="text-xs text-mute">Stickers Needed</span>
+                    <span className={`text-sm font-semibold tabular-nums ${stickerInsufficient ? "text-error" : "text-ink"}`}>
                       {bottlesProduced} pcs
                     </span>
                   </div>
                 )}
               </div>
 
-              <div className="bg-emerald-950/40 p-4 rounded-xl border border-emerald-900/60 mt-2">
-                <p className="text-xs font-semibold text-emerald-300 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4" />
+              <div className="card p-4 mt-2">
+                <span className="badge badge-success">
+                  <CheckCircle2 className="w-3 h-3" />
                   <span>{macerationDays > 0 ? "Maceration" : "Stock Output"}</span>
-                </p>
-                <p className="text-sm font-extrabold text-white mt-1">
+                </span>
+                <p className="text-sm font-semibold text-ink mt-2">
                   {macerationDays > 0
                     ? `${bottlesProduced} bottle${bottlesProduced !== 1 ? "s" : ""} will macerate for ${macerationDays} day${macerationDays !== 1 ? "s" : ""}`
                     : `+${bottlesProduced} bottle${bottlesProduced !== 1 ? "s" : ""} of ${selectedProduct?.name || "—"}`
                   }
                 </p>
                 {macerationDays > 0 && (
-                  <p className="text-[11px] text-emerald-400/80 mt-1">
+                  <p className="text-xs text-mute mt-1">
                     Product will not be available for sale until maceration ends
                   </p>
                 )}
               </div>
 
               {(oilInsufficient || ethanolInsufficient || bottleInsufficient || boxInsufficient || stickerInsufficient) && (
-                <div className="bg-rose-950/40 p-3 rounded-xl border border-rose-900/60">
-                  <p className="text-xs font-semibold text-rose-300 flex items-center gap-1.5">
-                    <AlertTriangle className="w-4 h-4" />
-                    <span>Insufficient stock for one or more materials</span>
-                  </p>
+                <div className="card p-4 border-error/30">
+                  <span className="badge badge-error h-auto py-1 whitespace-normal text-left">
+                    <AlertTriangle className="w-3 h-3 shrink-0" />
+                    Insufficient stock for one or more materials
+                  </span>
                 </div>
               )}
             </div>
