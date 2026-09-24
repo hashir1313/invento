@@ -57,7 +57,7 @@ typography:
   label-sm:
     fontFamily: Geist, Arial, sans-serif
     fontSize: 14px
-    fontWeight: 500 burada komikledin mi yani son DESIGN.md'leri? 
+    fontWeight: 500
     lineHeight: 20px
     letterSpacing: -0.28px
   mono-eyebrow:
@@ -233,6 +233,7 @@ components:
 
 ---
 
+> **Applied in Invento:** this document is the design-language reference for the app. The tokens below are implemented in [`app/globals.css`](./app/globals.css) (Tailwind v4 `@theme`) — colors, type scale, radii, spacing, and shadows — together with dark-mode variants toggled by a `.dark` class on `<html>`. UI conventions (pill CTAs, 6px app buttons, hairline cards, mono eyebrows, hero mesh gradient) are used throughout the pages; see the [architecture doc](./docs/architecture.md) for details.
 
 ## Overview
 
