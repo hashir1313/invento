@@ -112,51 +112,30 @@ async function main() {
     },
   });
 
-  // 3. Seed Sample Sales Records
-  console.log("  -> Seeding sample sales records...");
-  await prisma.sale.create({
-    data: {
-      customer_name: "Ali Raza",
-      date_purchased: new Date(),
-      product_id: p1.id,
-      quantity: 2,
-      unit_price: 3500,
-      total_price: 7000,
-      payment_status: PaymentStatus.PAYED,
-      payment_option: PaymentOption.EASYPAISA,
-      review_given: true,
-      notes: "Delivered via TCS Courier",
-    },
-  });
-
-  await prisma.sale.create({
-    data: {
-      customer_name: "Sara Ahmed",
-      date_purchased: new Date(),
-      product_id: p2.id,
-      quantity: 1,
-      unit_price: 3200,
-      total_price: 3200,
-      payment_status: PaymentStatus.PENDING,
-      payment_option: PaymentOption.JAZZCASH,
-      review_given: false,
-      notes: "Awaiting JazzCash transfer verification",
-    },
-  });
-
-  await prisma.sale.create({
-    data: {
-      customer_name: "Usman Malik",
-      date_purchased: new Date(),
-      product_id: p3.id,
-      quantity: 1,
-      unit_price: 4800,
-      total_price: 4800,
-      payment_status: PaymentStatus.PAYED,
-      payment_option: PaymentOption.BANK_TRANSFER,
-      review_given: false,
-      notes: "HBL Bank Transfer",
-    },
+  // 3. Seed Default Finance Accounts
+  console.log("  -> Seeding default finance accounts...");
+  await prisma.account.createMany({
+    data: [
+      {
+        name: "Business Account",
+        type: "BUSINESS",
+        partner: null,
+        share_percentage: 0,
+      },
+      {
+        name: "Badar's Account",
+        type: "PARTNER",
+        partner: "BADAR",
+        share_percentage: 65,
+      },
+      {
+        name: "Hashir's Account",
+        type: "PARTNER",
+        partner: "HASHIR",
+        share_percentage: 35,
+      },
+    ],
+    skipDuplicates: true,
   });
 
   console.log("✅ Invento database seed completed successfully!");

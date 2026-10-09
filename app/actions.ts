@@ -2,7 +2,25 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { PaymentStatus, PaymentOption, MaterialCategory, UnitOfMeasure, MacerationStatus } from "@prisma/client";
+import { 
+  PaymentStatus, 
+  PaymentOption, 
+  MaterialCategory, 
+  UnitOfMeasure, 
+  MacerationStatus,
+  TxnType,
+  ExpenseCategory,
+  Prisma
+} from "@prisma/client";
+import { getOrCreateDefaultAccounts } from "./bank-actions";
+
+function safeRevalidate(path: string) {
+  try {
+    revalidatePath(path);
+  } catch {
+    // Ignore when running outside Next.js request context
+  }
+}
 
 // ==========================================
 // PRODUCTS ACTIONS
@@ -42,8 +60,8 @@ export async function createProduct(data: {
         image_url: data.image_url || null,
       },
     });
-    revalidatePath("/products");
-    revalidatePath("/");
+    safeRevalidate("/products");
+    safeRevalidate("/");
     return { success: true, product };
   } catch (error: any) {
     console.error("Error creating product:", error);
@@ -82,8 +100,8 @@ export async function updateProduct(
       where: { id },
       data: updateData,
     });
-    revalidatePath("/products");
-    revalidatePath("/");
+    safeRevalidate("/products");
+    safeRevalidate("/");
     return { success: true, product };
   } catch (error: any) {
     console.error("Error updating product:", error);
@@ -97,8 +115,8 @@ export async function updateProductStock(id: string, newStock: number) {
       where: { id },
       data: { stock: Math.max(0, Number(newStock)) },
     });
-    revalidatePath("/products");
-    revalidatePath("/");
+    safeRevalidate("/products");
+    safeRevalidate("/");
     return { success: true, product };
   } catch (error: any) {
     return { success: false, error: error?.message || "Failed to update stock" };
@@ -108,8 +126,8 @@ export async function updateProductStock(id: string, newStock: number) {
 export async function deleteProduct(id: string) {
   try {
     await prisma.product.delete({ where: { id } });
-    revalidatePath("/products");
-    revalidatePath("/");
+    safeRevalidate("/products");
+    safeRevalidate("/");
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error?.message || "Failed to delete product" };
@@ -181,11 +199,17 @@ export async function createSale(data: {
         data: { stock: product.stock - qty },
       });
 
+      // Determine if paid
+      const isPaid = data.payment_status === PaymentStatus.PAYED;
+      const datePurchased = data.date_purchased ? new Date(data.date_purchased) : new Date();
+      const paidAt = isPaid ? datePurchased : null;
+
       // Create Sale record
       const sale = await tx.sale.create({
         data: {
           customer_name: data.customer_name,
-          date_purchased: data.date_purchased ? new Date(data.date_purchased) : new Date(),
+          date_purchased: datePurchased,
+          paid_at: paidAt,
           product_id: data.product_id,
           quantity: qty,
           unit_price: unitPrice,
@@ -197,12 +221,29 @@ export async function createSale(data: {
         },
       });
 
+      // If created as PAYED, record REVENUE in banking ledger
+      if (isPaid) {
+        const { business } = await getOrCreateDefaultAccounts(tx);
+        await tx.txnEntry.create({
+          data: {
+            type: TxnType.REVENUE,
+            amount: new Prisma.Decimal(totalPrice.toFixed(2)),
+            from_id: null,
+            to_id: business.id,
+            sale_id: sale.id,
+            occurred_at: paidAt!,
+            notes: `Sale of ${qty}x ${product.name} to ${data.customer_name}`,
+          },
+        });
+      }
+
       return sale;
     });
 
-    revalidatePath("/sales");
-    revalidatePath("/products");
-    revalidatePath("/");
+    safeRevalidate("/sales");
+    safeRevalidate("/products");
+    safeRevalidate("/finances");
+    safeRevalidate("/");
     return { success: true, sale: result };
   } catch (error: any) {
     console.error("Error creating sale:", error);
@@ -212,13 +253,86 @@ export async function createSale(data: {
 
 export async function updateSalePaymentStatus(id: string, newStatus: PaymentStatus) {
   try {
-    const sale = await prisma.sale.update({
-      where: { id },
-      data: { payment_status: newStatus },
+    const result = await prisma.$transaction(async (tx) => {
+      const existing = await tx.sale.findUnique({
+        where: { id },
+        include: { product: true },
+      });
+      if (!existing) throw new Error("Sale not found");
+      if (existing.payment_status === newStatus) return existing;
+
+      const { business } = await getOrCreateDefaultAccounts(tx);
+
+      if (newStatus === PaymentStatus.PAYED) {
+        const paidAt = new Date();
+        await tx.sale.update({
+          where: { id },
+          data: { payment_status: PaymentStatus.PAYED, paid_at: paidAt },
+        });
+
+        // Upsert REVENUE entry
+        await tx.txnEntry.upsert({
+          where: { sale_id_type: { sale_id: id, type: TxnType.REVENUE } },
+          create: {
+            type: TxnType.REVENUE,
+            amount: new Prisma.Decimal(existing.total_price.toFixed(2)),
+            from_id: null,
+            to_id: business.id,
+            sale_id: id,
+            occurred_at: paidAt,
+            notes: `Sale of ${existing.quantity}x ${existing.product?.name || "perfume"} to ${existing.customer_name}`,
+          },
+          update: {
+            amount: new Prisma.Decimal(existing.total_price.toFixed(2)),
+            occurred_at: paidAt,
+          },
+        });
+
+        // Remove any REFUND row if it was previously marked refunded
+        await tx.txnEntry.deleteMany({
+          where: { sale_id: id, type: TxnType.REFUND },
+        });
+      } else if (newStatus === PaymentStatus.REFUNDED) {
+        await tx.sale.update({
+          where: { id },
+          data: { payment_status: PaymentStatus.REFUNDED },
+        });
+
+        // Add REFUND outflow
+        await tx.txnEntry.upsert({
+          where: { sale_id_type: { sale_id: id, type: TxnType.REFUND } },
+          create: {
+            type: TxnType.REFUND,
+            amount: new Prisma.Decimal(existing.total_price.toFixed(2)),
+            from_id: business.id,
+            to_id: null,
+            sale_id: id,
+            occurred_at: new Date(),
+            notes: `Refund for sale to ${existing.customer_name}`,
+          },
+          update: {
+            amount: new Prisma.Decimal(existing.total_price.toFixed(2)),
+            occurred_at: new Date(),
+          },
+        });
+      } else if (newStatus === PaymentStatus.PENDING) {
+        // Revert to pending - delete revenue and refund rows
+        await tx.txnEntry.deleteMany({
+          where: { sale_id: id },
+        });
+        await tx.sale.update({
+          where: { id },
+          data: { payment_status: PaymentStatus.PENDING, paid_at: null },
+        });
+      }
+
+      return await tx.sale.findUnique({ where: { id } });
     });
-    revalidatePath("/sales");
-    revalidatePath("/");
-    return { success: true, sale };
+
+    safeRevalidate("/sales");
+    safeRevalidate("/finances");
+    safeRevalidate("/");
+    return { success: true, sale: result };
   } catch (error: any) {
     return { success: false, error: error?.message || "Failed to update payment status" };
   }
@@ -230,8 +344,8 @@ export async function toggleSaleReview(id: string, currentStatus: boolean) {
       where: { id },
       data: { review_given: !currentStatus },
     });
-    revalidatePath("/sales");
-    revalidatePath("/");
+    safeRevalidate("/sales");
+    safeRevalidate("/");
     return { success: true, sale };
   } catch (error: any) {
     return { success: false, error: error?.message || "Failed to toggle review status" };
@@ -298,11 +412,20 @@ export async function updateSale(
         });
       }
 
+      // Determine paid_at
+      let paidAt = existingSale.paid_at;
+      if (data.payment_status === PaymentStatus.PAYED && !paidAt) {
+        paidAt = data.date_purchased ? new Date(data.date_purchased) : new Date();
+      } else if (data.payment_status === PaymentStatus.PENDING) {
+        paidAt = null;
+      }
+
       const sale = await tx.sale.update({
         where: { id },
         data: {
           customer_name: data.customer_name,
           date_purchased: data.date_purchased ? new Date(data.date_purchased) : existingSale.date_purchased,
+          paid_at: paidAt,
           product_id: data.product_id,
           quantity: qty,
           unit_price: unitPrice,
@@ -314,12 +437,58 @@ export async function updateSale(
         },
       });
 
+      // Synchronize ledger entry
+      const { business } = await getOrCreateDefaultAccounts(tx);
+      if (data.payment_status === PaymentStatus.PAYED) {
+        await tx.txnEntry.upsert({
+          where: { sale_id_type: { sale_id: id, type: TxnType.REVENUE } },
+          create: {
+            type: TxnType.REVENUE,
+            amount: new Prisma.Decimal(totalPrice.toFixed(2)),
+            from_id: null,
+            to_id: business.id,
+            sale_id: id,
+            occurred_at: paidAt || new Date(),
+            notes: `Sale of ${qty}x ${newProduct.name} to ${data.customer_name}`,
+          },
+          update: {
+            amount: new Prisma.Decimal(totalPrice.toFixed(2)),
+            occurred_at: paidAt || new Date(),
+          },
+        });
+        await tx.txnEntry.deleteMany({
+          where: { sale_id: id, type: TxnType.REFUND },
+        });
+      } else if (data.payment_status === PaymentStatus.REFUNDED) {
+        await tx.txnEntry.upsert({
+          where: { sale_id_type: { sale_id: id, type: TxnType.REFUND } },
+          create: {
+            type: TxnType.REFUND,
+            amount: new Prisma.Decimal(totalPrice.toFixed(2)),
+            from_id: business.id,
+            to_id: null,
+            sale_id: id,
+            occurred_at: new Date(),
+            notes: `Refund for sale to ${data.customer_name}`,
+          },
+          update: {
+            amount: new Prisma.Decimal(totalPrice.toFixed(2)),
+            occurred_at: new Date(),
+          },
+        });
+      } else if (data.payment_status === PaymentStatus.PENDING) {
+        await tx.txnEntry.deleteMany({
+          where: { sale_id: id },
+        });
+      }
+
       return sale;
     });
 
-    revalidatePath("/sales");
-    revalidatePath("/products");
-    revalidatePath("/");
+    safeRevalidate("/sales");
+    safeRevalidate("/products");
+    safeRevalidate("/finances");
+    safeRevalidate("/");
     return { success: true, sale: result };
   } catch (error: any) {
     console.error("Error updating sale:", error);
@@ -367,8 +536,8 @@ export async function createRawMaterial(data: {
         cost_per_unit: Number(data.cost_per_unit),
       },
     });
-    revalidatePath("/raw-materials");
-    revalidatePath("/");
+    safeRevalidate("/raw-materials");
+    safeRevalidate("/");
     return { success: true, material };
   } catch (error: any) {
     return { success: false, error: error?.message || "Failed to create raw material" };
@@ -398,8 +567,8 @@ export async function updateRawMaterial(
         cost_per_unit: Number(data.cost_per_unit),
       },
     });
-    revalidatePath("/raw-materials");
-    revalidatePath("/");
+    safeRevalidate("/raw-materials");
+    safeRevalidate("/");
     return { success: true, material };
   } catch (error: any) {
     console.error("Error updating raw material:", error);
@@ -449,11 +618,27 @@ export async function restockRawMaterial(data: {
         },
       });
 
+      // Post EXPENSE (INVENTORY) to banking ledger
+      const { business } = await getOrCreateDefaultAccounts(tx);
+      await tx.txnEntry.create({
+        data: {
+          type: TxnType.EXPENSE,
+          category: ExpenseCategory.INVENTORY,
+          amount: new Prisma.Decimal(totalCost.toFixed(2)),
+          from_id: business.id,
+          to_id: null,
+          restock_id: restock.id,
+          occurred_at: restock.date_received,
+          notes: `Restock: ${material.name} (${qty} ${material.unit_of_measure})`,
+        },
+      });
+
       return restock;
     });
 
-    revalidatePath("/raw-materials");
-    revalidatePath("/");
+    safeRevalidate("/raw-materials");
+    safeRevalidate("/finances");
+    safeRevalidate("/");
     return { success: true, restock: result };
   } catch (error: any) {
     return { success: false, error: error?.message || "Failed to restock raw material" };
@@ -463,8 +648,8 @@ export async function restockRawMaterial(data: {
 export async function deleteRawMaterial(id: string) {
   try {
     await prisma.rawMaterial.delete({ where: { id } });
-    revalidatePath("/raw-materials");
-    revalidatePath("/");
+    safeRevalidate("/raw-materials");
+    safeRevalidate("/");
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error?.message || "Failed to delete raw material" };
@@ -518,7 +703,7 @@ export async function saveRecipe(
       }
     });
 
-    revalidatePath("/batch-production");
+    safeRevalidate("/batch-production");
     return { success: true };
   } catch (error: any) {
     console.error("Error saving recipe:", error);
@@ -582,10 +767,10 @@ export async function produceBatch(data: {
       return { batchLog, updatedProduct };
     });
 
-    revalidatePath("/products");
-    revalidatePath("/raw-materials");
-    revalidatePath("/batch-production");
-    revalidatePath("/");
+    safeRevalidate("/products");
+    safeRevalidate("/raw-materials");
+    safeRevalidate("/batch-production");
+    safeRevalidate("/");
     return { success: true, result };
   } catch (error: any) {
     return { success: false, error: error?.message || "Failed to produce batch" };
@@ -708,12 +893,12 @@ export async function produceBatchV2(data: {
       return { batchLog, totalMl, oilNeeded, ethanolNeeded, bottlesProduced, macerationDays };
     });
 
-    revalidatePath("/products");
-    revalidatePath("/raw-materials");
-    revalidatePath("/batch-production");
-    revalidatePath("/batch-production-v2");
-    revalidatePath("/maceration");
-    revalidatePath("/");
+    safeRevalidate("/products");
+    safeRevalidate("/raw-materials");
+    safeRevalidate("/batch-production");
+    safeRevalidate("/batch-production-v2");
+    safeRevalidate("/maceration");
+    safeRevalidate("/");
     return { success: true, result };
   } catch (error: any) {
     console.error("Error producing batch v2:", error);
@@ -920,8 +1105,8 @@ export async function createMacerationBatch(data: {
       return macerationBatch;
     });
 
-    revalidatePath("/maceration");
-    revalidatePath("/");
+    safeRevalidate("/maceration");
+    safeRevalidate("/");
     return { success: true, maceration: result };
   } catch (error: any) {
     console.error("Error creating maceration batch:", error);
@@ -956,9 +1141,9 @@ export async function addMacerationToStock(id: string) {
       return updatedMaceration;
     });
 
-    revalidatePath("/maceration");
-    revalidatePath("/products");
-    revalidatePath("/");
+    safeRevalidate("/maceration");
+    safeRevalidate("/products");
+    safeRevalidate("/");
     return { success: true, maceration: result };
   } catch (error: any) {
     console.error("Error adding maceration to stock:", error);
@@ -990,8 +1175,8 @@ export async function extendMaceration(id: string, newEndDate: string) {
       return updatedMaceration;
     });
 
-    revalidatePath("/maceration");
-    revalidatePath("/");
+    safeRevalidate("/maceration");
+    safeRevalidate("/");
     return { success: true, maceration: result };
   } catch (error: any) {
     console.error("Error extending maceration:", error);
@@ -1018,8 +1203,8 @@ export async function getCompletedMacerations() {
 export async function deleteMacerationBatch(id: string) {
   try {
     await prisma.macerationBatch.delete({ where: { id } });
-    revalidatePath("/maceration");
-    revalidatePath("/");
+    safeRevalidate("/maceration");
+    safeRevalidate("/");
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error?.message || "Failed to delete maceration batch" };

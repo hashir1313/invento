@@ -68,6 +68,7 @@ model Sale {
   id             String        @id @default(uuid())
   customer_name  String
   date_purchased DateTime      @default(now())
+  paid_at        DateTime?
   product_id     String
   quantity       Int           @default(1)
   unit_price     Float
@@ -80,10 +81,12 @@ model Sale {
   created_at     DateTime      @default(now())
 
   product        Product       @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  txn_entries    TxnEntry[]
 
   @@index([payment_status])
   @@index([payment_option])
   @@index([date_purchased])
+  @@index([paid_at])
   @@map("sales")
 }
 
@@ -117,6 +120,7 @@ model RawMaterialRestock {
   created_at        DateTime    @default(now())
 
   raw_material      RawMaterial @relation(fields: [raw_material_id], references: [id], onDelete: Cascade)
+  txn_entries       TxnEntry[]
 
   @@map("raw_material_restocks")
 }
@@ -163,4 +167,80 @@ model MacerationBatch {
   @@index([status])
   @@index([end_date])
   @@map("maceration_batches")
+}
+
+// ==========================================
+// FINANCE & BANKING SYSTEM
+// ==========================================
+
+enum Partner {
+  BADAR
+  HASHIR
+}
+
+enum AccountType {
+  BUSINESS
+  PARTNER
+}
+
+enum TxnType {
+  CAPITAL_CONTRIBUTION
+  REVENUE
+  REFUND
+  EXPENSE
+  PROFIT_WITHDRAWAL
+}
+
+enum ExpenseCategory {
+  INVENTORY
+  ADS
+  RENT
+  PACKAGING
+  UTILITIES
+  SALARY
+  TRANSPORT
+  OTHER
+}
+
+model Account {
+  id               String      @id @default(uuid())
+  type             AccountType
+  partner          Partner?    // null on the BUSINESS account
+  name             String
+  share_percentage Float       @default(0) // e.g. 65 for Badar, 35 for Hashir
+  created_at       DateTime    @default(now())
+  updated_at       DateTime    @updatedAt
+
+  outgoing         TxnEntry[]  @relation("From")
+  incoming         TxnEntry[]  @relation("To")
+
+  @@unique([type, partner])
+  @@map("accounts")
+}
+
+model TxnEntry {
+  id          String           @id @default(uuid())
+  type        TxnType
+  amount      Decimal          @db.Decimal(14, 2)  // always > 0; direction determined by from/to
+  from_id     String?
+  to_id       String?
+  category    ExpenseCategory?                     // EXPENSE only
+  partner     Partner?                             // CONTRIBUTION: who paid in; WITHDRAWAL: who was paid out
+  sale_id     String?                              // idempotency key for REVENUE / REFUND
+  restock_id  String?                              // idempotency key for inventory EXPENSE
+  notes       String?
+  occurred_at DateTime         @default(now())     // business date when cash moved
+  created_at  DateTime         @default(now())
+
+  from        Account?            @relation("From", fields: [from_id], references: [id], onDelete: SetNull)
+  to          Account?            @relation("To",   fields: [to_id],   references: [id], onDelete: SetNull)
+  sale        Sale?               @relation(fields: [sale_id], references: [id], onDelete: SetNull)
+  restock     RawMaterialRestock? @relation(fields: [restock_id], references: [id], onDelete: SetNull)
+
+  @@unique([sale_id, type])
+  @@unique([restock_id, type])
+  @@index([type, occurred_at])
+  @@index([from_id])
+  @@index([to_id])
+  @@map("txn_entries")
 }
