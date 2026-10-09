@@ -151,12 +151,16 @@
     border-radius: var(--radius-sm);
   }
 
-  /* --- Buttons: pills for prominent CTAs, 6px squares for app chrome --- */
   .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
+    height: 38px;
+    padding: 0 14px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    line-height: 20px;
     font-weight: 500;
     white-space: nowrap;
     cursor: pointer;
@@ -166,7 +170,8 @@
       background-color 0.15s ease,
       border-color 0.15s ease,
       color 0.15s ease,
-      opacity 0.15s ease;
+      opacity 0.15s ease,
+      transform 0.1s ease;
   }
 
   .btn:disabled {

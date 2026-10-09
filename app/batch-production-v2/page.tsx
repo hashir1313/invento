@@ -462,32 +462,58 @@ export default function BatchProductionV2Page() {
               </div>
             </div>
 
-            {/* Produce Button */}
-            <button
-              type="submit"
-              disabled={submitting || !canProduce}
-              className="btn btn-primary w-full"
-            >
-              {macerationDays > 0 ? (
-                <>
-                  <Clock className="w-5 h-5" />
-                  {submitting
-                    ? "Producing..."
-                    : `Produce & Start Maceration (${macerationDays} days)`}
-                </>
-              ) : (
-                <>
-                  <FlaskConical className="w-5 h-5" />
-                  {submitting
-                    ? "Producing..."
-                    : `Produce ${bottlesProduced} Bottle${bottlesProduced !== 1 ? "s" : ""} (+${bottlesProduced} Stock)`}
-                </>
+            {/* Produce Action Card */}
+            <div className="card space-y-3">
+              <button
+                type="submit"
+                disabled={submitting || !canProduce}
+                className="btn btn-primary btn-pill w-full h-12 text-sm font-semibold tracking-wide shadow-whisper hover:shadow-float active:scale-[0.99] transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {submitting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    <span>Processing Batch...</span>
+                  </>
+                ) : macerationDays > 0 ? (
+                  <>
+                    <Clock className="w-5 h-5" />
+                    <span>
+                      Produce & Start Maceration ({bottlesProduced} Bottle{bottlesProduced !== 1 ? "s" : ""} • {macerationDays} Days)
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <FlaskConical className="w-5 h-5" />
+                    <span>
+                      Produce {bottlesProduced} Bottle{bottlesProduced !== 1 ? "s" : ""} of {selectedProduct?.name || "Perfume"} (+{bottlesProduced} Stock)
+                    </span>
+                  </>
+                )}
+              </button>
+
+              {!canProduce && (
+                <div className="flex items-center justify-center gap-1.5 text-xs text-rose-500 font-medium">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  <span>
+                    {!selectedProductId
+                      ? "Select a target perfume product"
+                      : quantity <= 0
+                      ? "Enter quantity greater than 0"
+                      : !oilMaterialId
+                      ? "Select fragrance oil material"
+                      : !ethanolMaterialId
+                      ? "Select solvent / ethanol material"
+                      : (oilInsufficient || ethanolInsufficient || bottleInsufficient || boxInsufficient || stickerInsufficient)
+                      ? "Cannot produce: Insufficient stock for one or more materials"
+                      : "Fill all required fields to produce"}
+                  </span>
+                </div>
               )}
-            </button>
+            </div>
           </div>
 
           {/* Summary Sidebar */}
-          <div className="card space-y-4 h-fit">
+          <div className="card space-y-4 h-fit sticky top-20">
             <h3 className="text-h3 flex items-center gap-2 border-b border-hairline pb-3">
               <Zap className="w-5 h-5 text-mute" />
               <span>Production Summary</span>
@@ -591,6 +617,19 @@ export default function BatchProductionV2Page() {
                   </span>
                 </div>
               )}
+
+              <button
+                type="submit"
+                disabled={submitting || !canProduce}
+                className="btn btn-primary btn-pill w-full h-11 text-xs font-semibold shadow-whisper hover:shadow-float active:scale-[0.99] transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
+              >
+                <FlaskConical className="w-4 h-4" />
+                <span>
+                  {submitting
+                    ? "Producing..."
+                    : `Produce ${bottlesProduced} Bottle${bottlesProduced !== 1 ? "s" : ""}`}
+                </span>
+              </button>
             </div>
           </div>
         </form>
