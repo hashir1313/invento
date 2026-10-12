@@ -199,6 +199,7 @@ enum ExpenseCategory {
   UTILITIES
   SALARY
   TRANSPORT
+  EQUIPMENT
   OTHER
 }
 

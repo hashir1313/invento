@@ -169,7 +169,7 @@ world* — a customer, a supplier, a landlord, your own pocket.
 `EXPENSE` carries a category, split into two families:
 
 - **`INVENTORY`** — raw material restocks. Auto-posted by `restockRawMaterial`.
-- **`OPERATING`** — ads, rent, utilities, packaging, salaries, transport, other. Entered by hand.
+- **`OPERATING`** — ads, rent, utilities, packaging, salaries, transport, equipment, other. Entered by hand.
 
 Both reduce profit equally under cash basis. The split exists purely so you can break down
 *"where did the 30,000 go"*.
@@ -182,7 +182,7 @@ Both reduce profit equally under cash basis. The split exists purely so you can 
 enum Partner          { BADAR  HASHIR }
 enum AccountType      { BUSINESS  PARTNER }
 enum TxnType          { CAPITAL_CONTRIBUTION  REVENUE  REFUND  EXPENSE  PROFIT_WITHDRAWAL }
-enum ExpenseCategory  { INVENTORY  ADS  RENT  PACKAGING  UTILITIES  SALARY  TRANSPORT  OTHER }
+enum ExpenseCategory  { INVENTORY  ADS  RENT  PACKAGING  UTILITIES  SALARY  TRANSPORT  EQUIPMENT  OTHER }
 
 model Account {
   id         String      @id @default(uuid())

@@ -73,6 +73,7 @@ export const EXPENSE_CATEGORY_LABELS: Record<string, string> = {
   UTILITIES: "Utilities & Bills",
   SALARY: "Salaries & Wages",
   TRANSPORT: "Delivery & Courier",
+  EQUIPMENT: "Equipment",
   OTHER: "Other Expenses",
 };
 
