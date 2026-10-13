@@ -21,6 +21,7 @@ import {
   Percent,
   Calendar,
   Layers,
+  Loader2,
 } from "lucide-react";
 
 import { QuickExpenseModal } from "./QuickExpenseModal";
@@ -142,25 +143,29 @@ export function FinancesClient({ initialMetrics }: FinancesClientProps) {
           <div className="inline-flex items-center p-0.5 rounded-sm bg-canvas border border-hairline text-xs font-medium">
             <button
               type="button"
+              disabled={loading}
               onClick={() => handlePeriodChange(year, month, false)}
-              className={`px-2.5 py-1 rounded-xs transition-colors ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xs transition-colors ${
                 !isAllTime
                   ? "bg-ink text-canvas font-semibold shadow-xs"
                   : "text-mute hover:text-ink"
-              }`}
+              } ${loading ? "cursor-wait opacity-80" : ""}`}
             >
-              Monthly
+              {loading && !isAllTime && <Loader2 className="w-3 h-3 animate-spin" />}
+              <span>Monthly</span>
             </button>
             <button
               type="button"
+              disabled={loading}
               onClick={() => handlePeriodChange(year, month, true)}
-              className={`px-2.5 py-1 rounded-xs transition-colors ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xs transition-colors ${
                 isAllTime
                   ? "bg-ink text-canvas font-semibold shadow-xs"
                   : "text-mute hover:text-ink"
-              }`}
+              } ${loading && isAllTime ? "cursor-wait opacity-80" : ""}`}
             >
-              Full Time
+              {loading && isAllTime && <Loader2 className="w-3 h-3 animate-spin" />}
+              <span>Full Time</span>
             </button>
           </div>
 
@@ -168,9 +173,10 @@ export function FinancesClient({ initialMetrics }: FinancesClientProps) {
           {!isAllTime && (
             <div className="flex items-center gap-1.5 ml-1 animate-in fade-in duration-200">
               <select
+                disabled={loading}
                 value={month}
                 onChange={(e) => handlePeriodChange(year, parseInt(e.target.value), false)}
-                className="h-8 px-2.5 bg-canvas border border-hairline rounded-sm text-xs font-medium text-ink focus:outline-none focus:border-link"
+                className={`h-8 px-2.5 bg-canvas border border-hairline rounded-sm text-xs font-medium text-ink focus:outline-none focus:border-link ${loading ? "opacity-60 cursor-wait" : ""}`}
               >
                 {MONTH_NAMES.map((m, idx) => (
                   <option key={m} value={idx + 1}>
@@ -180,9 +186,10 @@ export function FinancesClient({ initialMetrics }: FinancesClientProps) {
               </select>
 
               <select
+                disabled={loading}
                 value={year}
                 onChange={(e) => handlePeriodChange(parseInt(e.target.value), month, false)}
-                className="h-8 px-2.5 bg-canvas border border-hairline rounded-sm text-xs font-medium text-ink focus:outline-none focus:border-link"
+                className={`h-8 px-2.5 bg-canvas border border-hairline rounded-sm text-xs font-medium text-ink focus:outline-none focus:border-link ${loading ? "opacity-60 cursor-wait" : ""}`}
               >
                 {[2024, 2025, 2026, 2027, 2028].map((y) => (
                   <option key={y} value={y}>
@@ -194,18 +201,29 @@ export function FinancesClient({ initialMetrics }: FinancesClientProps) {
           )}
         </div>
 
-        {/* Period Summary Indicator */}
+        {/* Period Summary Indicator & Loading Spinner */}
         <div className="flex items-center gap-2 text-xs text-mute font-mono">
-          <span>{periodLabel}</span>
-          <span>•</span>
-          <span className={metrics.periodNetProfit >= 0 ? "text-emerald-600 font-semibold" : "text-rose-600 font-semibold"}>
-            Net: {formatPKR(metrics.periodNetProfit)}
-          </span>
+          {loading ? (
+            <span className="inline-flex items-center gap-1.5 text-link font-medium">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <span>Updating period...</span>
+            </span>
+          ) : (
+            <>
+              <span>{periodLabel}</span>
+              <span>•</span>
+              <span className={metrics.periodNetProfit >= 0 ? "text-emerald-600 font-semibold" : "text-rose-600 font-semibold"}>
+                Net: {formatPKR(metrics.periodNetProfit)}
+              </span>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Top 4 Core Metrics Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Main Content Area with Loading Opacity Transition */}
+      <div className={`space-y-6 transition-opacity duration-200 ${loading ? "opacity-50 pointer-events-none" : "opacity-100"}`}>
+        {/* Top 4 Core Metrics Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* 1. Period Net Profit */}
         <div className={`card ${isLoss ? "border-rose-200 bg-rose-50/10" : ""}`}>
           <div className="flex justify-between items-start">
@@ -501,6 +519,7 @@ export function FinancesClient({ initialMetrics }: FinancesClientProps) {
       {activeTab === "ledger" && (
         <LedgerTable refreshToken={refreshToken} />
       )}
+      </div>
 
       {/* Modals */}
       <QuickExpenseModal
