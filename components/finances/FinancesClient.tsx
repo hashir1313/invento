@@ -40,6 +40,7 @@ const MONTH_NAMES = [
 
 export function FinancesClient({ initialMetrics }: FinancesClientProps) {
   const [metrics, setMetrics] = useState<any>(initialMetrics);
+  const [isAllTime, setIsAllTime] = useState<boolean>(Boolean(initialMetrics.isAllTime));
   const [year, setYear] = useState<number>(initialMetrics.selectedYear);
   const [month, setMonth] = useState<number>(initialMetrics.selectedMonth);
   const [activeTab, setActiveTab] = useState<"overview" | "ledger">("overview");
@@ -53,12 +54,13 @@ export function FinancesClient({ initialMetrics }: FinancesClientProps) {
   const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
   const [selectedPartnerForWithdraw, setSelectedPartnerForWithdraw] = useState<any>(null);
 
-  async function handlePeriodChange(newYear: number, newMonth: number) {
+  async function handlePeriodChange(newYear: number, newMonth: number, allTime: boolean = false) {
     setYear(newYear);
     setMonth(newMonth);
+    setIsAllTime(allTime);
     setLoading(true);
     try {
-      const data = await getBankMetrics({ year: newYear, month: newMonth });
+      const data = await getBankMetrics({ year: newYear, month: newMonth, isAllTime: allTime });
       setMetrics(data);
     } catch (err) {
       console.error("Error updating period metrics:", err);
@@ -70,7 +72,7 @@ export function FinancesClient({ initialMetrics }: FinancesClientProps) {
   async function refreshMetrics() {
     setLoading(true);
     try {
-      const data = await getBankMetrics({ year, month });
+      const data = await getBankMetrics({ year, month, isAllTime });
       setMetrics(data);
       setRefreshToken((prev) => prev + 1);
     } catch (err) {
@@ -88,6 +90,9 @@ export function FinancesClient({ initialMetrics }: FinancesClientProps) {
   const badar = metrics.partners.badar;
   const hashir = metrics.partners.hashir;
   const isLoss = metrics.isLoss;
+
+  const periodLabel = isAllTime ? "All Time" : `${MONTH_NAMES[month - 1]} ${year}`;
+  const periodShortLabel = isAllTime ? "All Time" : MONTH_NAMES[month - 1]?.slice(0, 3);
 
   return (
     <div className="space-y-6">
@@ -129,41 +134,69 @@ export function FinancesClient({ initialMetrics }: FinancesClientProps) {
 
       {/* Period Selector Bar */}
       <div className="card-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-elevated">
-        <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-mute" />
+        <div className="flex flex-wrap items-center gap-2">
+          <Calendar className="w-4 h-4 text-mute shrink-0" />
           <span className="text-xs font-mono uppercase text-mute font-medium">Reporting Period:</span>
-          <div className="flex items-center gap-1.5 ml-1">
-            <select
-              value={month}
-              onChange={(e) => handlePeriodChange(year, parseInt(e.target.value))}
-              className="h-8 px-2.5 bg-canvas border border-hairline rounded-sm text-xs font-medium text-ink focus:outline-none focus:border-link"
-            >
-              {MONTH_NAMES.map((m, idx) => (
-                <option key={m} value={idx + 1}>
-                  {m}
-                </option>
-              ))}
-            </select>
 
-            <select
-              value={year}
-              onChange={(e) => handlePeriodChange(parseInt(e.target.value), month)}
-              className="h-8 px-2.5 bg-canvas border border-hairline rounded-sm text-xs font-medium text-ink focus:outline-none focus:border-link"
+          {/* Segmented View Toggle: Monthly vs Full Time */}
+          <div className="inline-flex items-center p-0.5 rounded-sm bg-canvas border border-hairline text-xs font-medium">
+            <button
+              type="button"
+              onClick={() => handlePeriodChange(year, month, false)}
+              className={`px-2.5 py-1 rounded-xs transition-colors ${
+                !isAllTime
+                  ? "bg-ink text-canvas font-semibold shadow-xs"
+                  : "text-mute hover:text-ink"
+              }`}
             >
-              {[2024, 2025, 2026, 2027, 2028].map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
+              Monthly
+            </button>
+            <button
+              type="button"
+              onClick={() => handlePeriodChange(year, month, true)}
+              className={`px-2.5 py-1 rounded-xs transition-colors ${
+                isAllTime
+                  ? "bg-ink text-canvas font-semibold shadow-xs"
+                  : "text-mute hover:text-ink"
+              }`}
+            >
+              Full Time
+            </button>
           </div>
+
+          {/* Month / Year Dropdowns (Shown when in Monthly mode) */}
+          {!isAllTime && (
+            <div className="flex items-center gap-1.5 ml-1 animate-in fade-in duration-200">
+              <select
+                value={month}
+                onChange={(e) => handlePeriodChange(year, parseInt(e.target.value), false)}
+                className="h-8 px-2.5 bg-canvas border border-hairline rounded-sm text-xs font-medium text-ink focus:outline-none focus:border-link"
+              >
+                {MONTH_NAMES.map((m, idx) => (
+                  <option key={m} value={idx + 1}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={year}
+                onChange={(e) => handlePeriodChange(parseInt(e.target.value), month, false)}
+                className="h-8 px-2.5 bg-canvas border border-hairline rounded-sm text-xs font-medium text-ink focus:outline-none focus:border-link"
+              >
+                {[2024, 2025, 2026, 2027, 2028].map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Period Summary Indicator */}
         <div className="flex items-center gap-2 text-xs text-mute font-mono">
-          <span>
-            {MONTH_NAMES[month - 1]} {year}
-          </span>
+          <span>{periodLabel}</span>
           <span>•</span>
           <span className={metrics.periodNetProfit >= 0 ? "text-emerald-600 font-semibold" : "text-rose-600 font-semibold"}>
             Net: {formatPKR(metrics.periodNetProfit)}
@@ -177,7 +210,7 @@ export function FinancesClient({ initialMetrics }: FinancesClientProps) {
         <div className={`card ${isLoss ? "border-rose-200 bg-rose-50/10" : ""}`}>
           <div className="flex justify-between items-start">
             <div>
-              <p className="eyebrow">Net Profit ({MONTH_NAMES[month - 1].slice(0, 3)})</p>
+              <p className="eyebrow">Net Profit ({periodShortLabel})</p>
               <h3 className={`text-2xl font-bold tabular-nums mt-2 ${isLoss ? "text-rose-600" : "text-emerald-600"}`}>
                 {formatPKR(metrics.periodNetProfit)}
               </h3>
@@ -280,7 +313,7 @@ export function FinancesClient({ initialMetrics }: FinancesClientProps) {
 
           <div className="grid grid-cols-3 gap-2 text-sm">
             <div className="well p-2.5">
-              <span className="eyebrow text-[10px] block">This Month</span>
+              <span className="eyebrow text-[10px] block">{isAllTime ? "Period Share" : "This Month"}</span>
               <span className="font-semibold text-ink tabular-nums text-sm">
                 {isLoss ? "—" : formatPKR(badar.periodShare)}
               </span>
@@ -331,7 +364,7 @@ export function FinancesClient({ initialMetrics }: FinancesClientProps) {
 
           <div className="grid grid-cols-3 gap-2 text-sm">
             <div className="well p-2.5">
-              <span className="eyebrow text-[10px] block">This Month</span>
+              <span className="eyebrow text-[10px] block">{isAllTime ? "Period Share" : "This Month"}</span>
               <span className="font-semibold text-ink tabular-nums text-sm">
                 {isLoss ? "—" : formatPKR(hashir.periodShare)}
               </span>
@@ -416,7 +449,7 @@ export function FinancesClient({ initialMetrics }: FinancesClientProps) {
             <div className="flex justify-between items-center pb-3 border-b border-hairline">
               <h2 className="text-h3 flex items-center gap-2">
                 <Receipt className="w-4 h-4 text-mute" />
-                <span>Operating & Inventory Costs ({MONTH_NAMES[month - 1]})</span>
+                <span>Operating & Inventory Costs ({periodLabel})</span>
               </h2>
               <span className="font-mono text-sm font-semibold text-ink tabular-nums">
                 Total: {formatPKR(metrics.periodExpenses)}
@@ -425,7 +458,7 @@ export function FinancesClient({ initialMetrics }: FinancesClientProps) {
 
             {Object.keys(metrics.expensesByCategory).length === 0 ? (
               <p className="text-sm text-mute py-4 text-center">
-                No expenses logged for this month yet. Use the &quot;Record Expense&quot; button to add marketing, rent, or packaging costs.
+                No expenses logged for this period yet. Use the &quot;Record Expense&quot; button to add marketing, rent, or packaging costs.
               </p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">

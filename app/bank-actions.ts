@@ -310,30 +310,34 @@ export async function updatePartnerShares(shares: { partner: Partner; percentage
 // METRICS & REPORTING
 // ==========================================
 
-export async function getBankMetrics(params?: { year?: number; month?: number }) {
+export async function getBankMetrics(params?: { year?: number; month?: number; isAllTime?: boolean }) {
   try {
     const { business, badar, hashir } = await getOrCreateDefaultAccounts();
 
+    const isAllTime = Boolean(params?.isAllTime);
     const currentPKT = await getCurrentPKTYearMonth();
     const selectedYear = params?.year || currentPKT.year;
     const selectedMonth = params?.month || currentPKT.month;
 
     const { startDate, endDate } = getMonthDateRangePKT(selectedYear, selectedMonth);
 
+    // Build date filter for period (bypassed if isAllTime is true)
+    const periodDateFilter = isAllTime ? {} : { occurred_at: { gte: startDate, lte: endDate } };
+
     // 1. Period Aggregates
     const [periodRevSum, periodRefSum, periodExpSum] = await Promise.all([
       prisma.txnEntry.aggregate({
-        where: { type: TxnType.REVENUE, occurred_at: { gte: startDate, lte: endDate } },
+        where: { type: TxnType.REVENUE, ...periodDateFilter },
         _sum: { amount: true },
         _count: true,
       }),
       prisma.txnEntry.aggregate({
-        where: { type: TxnType.REFUND, occurred_at: { gte: startDate, lte: endDate } },
+        where: { type: TxnType.REFUND, ...periodDateFilter },
         _sum: { amount: true },
         _count: true,
       }),
       prisma.txnEntry.aggregate({
-        where: { type: TxnType.EXPENSE, occurred_at: { gte: startDate, lte: endDate } },
+        where: { type: TxnType.EXPENSE, ...periodDateFilter },
         _sum: { amount: true },
         _count: true,
       }),
@@ -348,7 +352,7 @@ export async function getBankMetrics(params?: { year?: number; month?: number })
     // Expenses breakdown by category for the period
     const expenseRows = await prisma.txnEntry.groupBy({
       by: ["category"],
-      where: { type: TxnType.EXPENSE, occurred_at: { gte: startDate, lte: endDate } },
+      where: { type: TxnType.EXPENSE, ...periodDateFilter },
       _sum: { amount: true },
     });
 
@@ -459,6 +463,7 @@ export async function getBankMetrics(params?: { year?: number; month?: number })
     return {
       selectedYear,
       selectedMonth,
+      isAllTime,
       // Period metrics
       periodRevenue,
       periodRevenueGross,
