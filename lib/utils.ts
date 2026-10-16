@@ -55,6 +55,8 @@ export const TXN_TYPE_LABELS: Record<string, string> = {
   REFUND: "Refund",
   EXPENSE: "Expense",
   PROFIT_WITHDRAWAL: "Profit Withdrawal",
+  LOAN_DISBURSEMENT: "Loan Received",
+  LOAN_REPAYMENT: "Loan Repayment",
 };
 
 export const TXN_TYPE_BADGES: Record<string, string> = {
@@ -63,6 +65,8 @@ export const TXN_TYPE_BADGES: Record<string, string> = {
   REFUND: "badge-error",
   EXPENSE: "badge-warning",
   PROFIT_WITHDRAWAL: "badge-neutral",
+  LOAN_DISBURSEMENT: "badge-info",
+  LOAN_REPAYMENT: "badge-neutral",
 };
 
 export const EXPENSE_CATEGORY_LABELS: Record<string, string> = {
@@ -74,6 +78,7 @@ export const EXPENSE_CATEGORY_LABELS: Record<string, string> = {
   SALARY: "Salaries & Wages",
   TRANSPORT: "Delivery & Courier",
   EQUIPMENT: "Equipment",
+  BANK_INTEREST_FEES: "Bank Fees & Interest",
   OTHER: "Other Expenses",
 };
 

@@ -165,11 +165,13 @@ world* — a customer, a supplier, a landlord, your own pocket.
 | `REFUND` | BUSINESS → outside | A `PAYED` sale becomes `REFUNDED` | **Yes** (−) |
 | `EXPENSE` | BUSINESS → outside | Restock, ads, rent, anything bought | **Yes** (−) |
 | `PROFIT_WITHDRAWAL` | BUSINESS → partner | A partner cashes out their share | **No** |
+| `LOAN_DISBURSEMENT` | outside → BUSINESS | Bank / lender funds received | **No** |
+| `LOAN_REPAYMENT` | BUSINESS → outside | Loan principal paid to lender | **No** |
 
 `EXPENSE` carries a category, split into two families:
 
 - **`INVENTORY`** — raw material restocks. Auto-posted by `restockRawMaterial`.
-- **`OPERATING`** — ads, rent, utilities, packaging, salaries, transport, equipment, other. Entered by hand.
+- **`OPERATING`** — ads, rent, utilities, packaging, salaries, transport, equipment, bank fees/interest, other. Entered by hand.
 
 Both reduce profit equally under cash basis. The split exists purely so you can break down
 *"where did the 30,000 go"*.
@@ -181,8 +183,8 @@ Both reduce profit equally under cash basis. The split exists purely so you can 
 ```prisma
 enum Partner          { BADAR  HASHIR }
 enum AccountType      { BUSINESS  PARTNER }
-enum TxnType          { CAPITAL_CONTRIBUTION  REVENUE  REFUND  EXPENSE  PROFIT_WITHDRAWAL }
-enum ExpenseCategory  { INVENTORY  ADS  RENT  PACKAGING  UTILITIES  SALARY  TRANSPORT  EQUIPMENT  OTHER }
+enum TxnType          { CAPITAL_CONTRIBUTION  REVENUE  REFUND  EXPENSE  PROFIT_WITHDRAWAL  LOAN_DISBURSEMENT  LOAN_REPAYMENT }
+enum ExpenseCategory  { INVENTORY  ADS  RENT  PACKAGING  UTILITIES  SALARY  TRANSPORT  EQUIPMENT  BANK_INTEREST_FEES  OTHER }
 
 model Account {
   id         String      @id @default(uuid())

@@ -189,6 +189,8 @@ enum TxnType {
   REFUND
   EXPENSE
   PROFIT_WITHDRAWAL
+  LOAN_DISBURSEMENT
+  LOAN_REPAYMENT
 }
 
 enum ExpenseCategory {
@@ -200,6 +202,7 @@ enum ExpenseCategory {
   SALARY
   TRANSPORT
   EQUIPMENT
+  BANK_INTEREST_FEES
   OTHER
 }
 

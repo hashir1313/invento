@@ -75,6 +75,22 @@ export function LedgerTable({ refreshToken }: LedgerTableProps) {
       );
     }
 
+    if (entry.type === "LOAN_DISBURSEMENT") {
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-semibold text-purple-600 font-mono tabular-nums">
+          <ArrowDownLeft className="w-3.5 h-3.5" /> +{formatPKR(entry.amount)}
+        </span>
+      );
+    }
+
+    if (entry.type === "LOAN_REPAYMENT") {
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 dark:text-slate-300 font-mono tabular-nums">
+          <ArrowUpRight className="w-3.5 h-3.5" /> -{formatPKR(entry.amount)}
+        </span>
+      );
+    }
+
     return (
       <span className="text-xs font-mono tabular-nums">
         {formatPKR(entry.amount)}
@@ -177,6 +193,10 @@ export function LedgerTable({ refreshToken }: LedgerTableProps) {
                         ? "bg-blue-50 text-blue-700 border-blue-200"
                         : entry.type === "PROFIT_WITHDRAWAL"
                         ? "bg-amber-50 text-amber-700 border-amber-200"
+                        : entry.type === "LOAN_DISBURSEMENT"
+                        ? "bg-purple-50 text-purple-700 border-purple-200"
+                        : entry.type === "LOAN_REPAYMENT"
+                        ? "bg-slate-100 text-slate-800 border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700"
                         : "bg-hairline text-ink border-hairline"
                     }`}>
                       {TXN_TYPE_LABELS[entry.type] || entry.type}

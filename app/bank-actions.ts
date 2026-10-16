@@ -306,6 +306,133 @@ export async function updatePartnerShares(shares: { partner: Partner; percentage
   }
 }
 
+export async function recordLoanDisbursement(data: {
+  lender: string;
+  amount: number;
+  notes?: string;
+  date?: string;
+}) {
+  try {
+    const amount = Number(data.amount);
+    if (isNaN(amount) || amount <= 0) {
+      return { success: false, error: "Loan amount must be greater than zero" };
+    }
+    if (!data.lender || !data.lender.trim()) {
+      return { success: false, error: "Lender / Bank name is required" };
+    }
+
+    const { business } = await getOrCreateDefaultAccounts();
+    const occurred_at = data.date ? new Date(data.date) : new Date();
+    const lenderLabel = data.lender.trim();
+    const noteText = data.notes?.trim()
+      ? `[Lender: ${lenderLabel}] ${data.notes.trim()}`
+      : `[Lender: ${lenderLabel}] Loan received`;
+
+    const txn = await prisma.txnEntry.create({
+      data: {
+        type: TxnType.LOAN_DISBURSEMENT,
+        amount: new Prisma.Decimal(amount.toFixed(2)),
+        from_id: null,
+        to_id: business.id,
+        notes: noteText,
+        occurred_at,
+      },
+    });
+
+    safeRevalidate("/finances");
+    safeRevalidate("/");
+    return { success: true, txn: { ...txn, amount: Number(txn.amount) } };
+  } catch (error: any) {
+    console.error("Error recording loan disbursement:", error);
+    return { success: false, error: error?.message || "Failed to record loan disbursement" };
+  }
+}
+
+export async function recordLoanRepayment(data: {
+  lender: string;
+  principalAmount: number;
+  interestAmount?: number;
+  notes?: string;
+  date?: string;
+}) {
+  try {
+    const principal = Number(data.principalAmount) || 0;
+    const interest = Number(data.interestAmount) || 0;
+    const totalPayment = principal + interest;
+
+    if (totalPayment <= 0) {
+      return { success: false, error: "Total repayment amount must be greater than zero" };
+    }
+    if (!data.lender || !data.lender.trim()) {
+      return { success: false, error: "Lender / Bank name is required" };
+    }
+
+    const occurred_at = data.date ? new Date(data.date) : new Date();
+    const lenderLabel = data.lender.trim();
+
+    await prisma.$transaction(async (tx) => {
+      const { business } = await getOrCreateDefaultAccounts(tx);
+
+      // Check liquid business cash
+      const [bizInflows, bizOutflows] = await Promise.all([
+        tx.txnEntry.aggregate({ where: { to_id: business.id }, _sum: { amount: true } }),
+        tx.txnEntry.aggregate({ where: { from_id: business.id }, _sum: { amount: true } }),
+      ]);
+      const businessCash = Number(bizInflows._sum.amount || 0) - Number(bizOutflows._sum.amount || 0);
+
+      if (totalPayment > businessCash) {
+        throw new Error(
+          `Repayment amount (PKR ${totalPayment.toLocaleString()}) exceeds available business cash (PKR ${Math.max(0, businessCash).toLocaleString()}).`
+        );
+      }
+
+      // 1. Post Principal Repayment (if principal > 0)
+      if (principal > 0) {
+        const principalNotes = data.notes?.trim()
+          ? `[Lender: ${lenderLabel}] Principal: ${data.notes.trim()}`
+          : `[Lender: ${lenderLabel}] Loan principal repayment`;
+
+        await tx.txnEntry.create({
+          data: {
+            type: TxnType.LOAN_REPAYMENT,
+            amount: new Prisma.Decimal(principal.toFixed(2)),
+            from_id: business.id,
+            to_id: null,
+            notes: principalNotes,
+            occurred_at,
+          },
+        });
+      }
+
+      // 2. Post Interest / Bank Charges as Expense (if interest > 0)
+      if (interest > 0) {
+        const interestNotes = data.notes?.trim()
+          ? `[Lender: ${lenderLabel}] Loan interest / fee: ${data.notes.trim()}`
+          : `[Lender: ${lenderLabel}] Loan markup / bank interest fee`;
+
+        await tx.txnEntry.create({
+          data: {
+            type: TxnType.EXPENSE,
+            category: ExpenseCategory.BANK_INTEREST_FEES,
+            amount: new Prisma.Decimal(interest.toFixed(2)),
+            from_id: business.id,
+            to_id: null,
+            notes: interestNotes,
+            occurred_at,
+          },
+        });
+      }
+    });
+
+    safeRevalidate("/finances");
+    safeRevalidate("/");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error recording loan repayment:", error);
+    return { success: false, error: error?.message || "Failed to record loan repayment" };
+  }
+}
+
 // ==========================================
 // METRICS & REPORTING
 // ==========================================
@@ -325,7 +452,7 @@ export async function getBankMetrics(params?: { year?: number; month?: number; i
     const periodDateFilter = isAllTime ? {} : { occurred_at: { gte: startDate, lte: endDate } };
 
     // 1. Period Aggregates
-    const [periodRevSum, periodRefSum, periodExpSum] = await Promise.all([
+    const [periodRevSum, periodRefSum, periodExpSum, periodLoanDisbursedSum, periodLoanRepaidSum] = await Promise.all([
       prisma.txnEntry.aggregate({
         where: { type: TxnType.REVENUE, ...periodDateFilter },
         _sum: { amount: true },
@@ -341,6 +468,14 @@ export async function getBankMetrics(params?: { year?: number; month?: number; i
         _sum: { amount: true },
         _count: true,
       }),
+      prisma.txnEntry.aggregate({
+        where: { type: TxnType.LOAN_DISBURSEMENT, ...periodDateFilter },
+        _sum: { amount: true },
+      }),
+      prisma.txnEntry.aggregate({
+        where: { type: TxnType.LOAN_REPAYMENT, ...periodDateFilter },
+        _sum: { amount: true },
+      }),
     ]);
 
     const periodRevenueGross = Number(periodRevSum._sum.amount || 0);
@@ -348,6 +483,8 @@ export async function getBankMetrics(params?: { year?: number; month?: number; i
     const periodRevenue = periodRevenueGross - periodRefunds;
     const periodExpenses = Number(periodExpSum._sum.amount || 0);
     const periodNetProfit = periodRevenue - periodExpenses;
+    const periodLoanDisbursed = Number(periodLoanDisbursedSum._sum.amount || 0);
+    const periodLoanRepaid = Number(periodLoanRepaidSum._sum.amount || 0);
 
     // Expenses breakdown by category for the period
     const expenseRows = await prisma.txnEntry.groupBy({
@@ -364,12 +501,14 @@ export async function getBankMetrics(params?: { year?: number; month?: number; i
     }
 
     // 2. All-Time Aggregates
-    const [allRevSum, allRefSum, allExpSum, allCapSum, allWithSum] = await Promise.all([
+    const [allRevSum, allRefSum, allExpSum, allCapSum, allWithSum, allLoanDisbursedSum, allLoanRepaidSum] = await Promise.all([
       prisma.txnEntry.aggregate({ where: { type: TxnType.REVENUE }, _sum: { amount: true } }),
       prisma.txnEntry.aggregate({ where: { type: TxnType.REFUND }, _sum: { amount: true } }),
       prisma.txnEntry.aggregate({ where: { type: TxnType.EXPENSE }, _sum: { amount: true } }),
       prisma.txnEntry.aggregate({ where: { type: TxnType.CAPITAL_CONTRIBUTION }, _sum: { amount: true } }),
       prisma.txnEntry.aggregate({ where: { type: TxnType.PROFIT_WITHDRAWAL }, _sum: { amount: true } }),
+      prisma.txnEntry.aggregate({ where: { type: TxnType.LOAN_DISBURSEMENT }, _sum: { amount: true } }),
+      prisma.txnEntry.aggregate({ where: { type: TxnType.LOAN_REPAYMENT }, _sum: { amount: true } }),
     ]);
 
     const allTimeRevenue = Number(allRevSum._sum.amount || 0) - Number(allRefSum._sum.amount || 0);
@@ -377,6 +516,9 @@ export async function getBankMetrics(params?: { year?: number; month?: number; i
     const allTimeNetProfit = allTimeRevenue - allTimeExpenses;
     const totalCapitalContributions = Number(allCapSum._sum.amount || 0);
     const totalWithdrawals = Number(allWithSum._sum.amount || 0);
+    const totalLoanBorrowed = Number(allLoanDisbursedSum._sum.amount || 0);
+    const totalLoanRepaid = Number(allLoanRepaidSum._sum.amount || 0);
+    const outstandingLoanDebt = Math.max(0, totalLoanBorrowed - totalLoanRepaid);
 
     // 3. Business Liquid Cash Balance
     const [bizInflows, bizOutflows] = await Promise.all([
@@ -456,8 +598,8 @@ export async function getBankMetrics(params?: { year?: number; month?: number; i
     const pendingSalesAmount = Number(pendingSalesAgg._sum.total_price || 0);
     const pendingSalesCount = pendingSalesAgg._count;
 
-    // 7. Identity check: Business Cash = Capital + All-time Profit - Withdrawals
-    const expectedBusinessCash = totalCapitalContributions + allTimeNetProfit - totalWithdrawals;
+    // 7. Identity check: Business Cash = Capital + All-time Profit + Outstanding Debt - Withdrawals
+    const expectedBusinessCash = totalCapitalContributions + allTimeNetProfit + outstandingLoanDebt - totalWithdrawals;
     const identityBalanced = Math.abs(businessCash - expectedBusinessCash) < 0.01;
 
     return {
@@ -480,6 +622,14 @@ export async function getBankMetrics(params?: { year?: number; month?: number; i
       totalCapitalContributions,
       totalWithdrawals,
       identityBalanced,
+      // Loans & Financing
+      loans: {
+        totalLoanBorrowed,
+        totalLoanRepaid,
+        outstandingLoanDebt,
+        periodLoanDisbursed,
+        periodLoanRepaid,
+      },
       // Partners
       partners: {
         badar: {

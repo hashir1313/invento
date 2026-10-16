@@ -22,6 +22,7 @@ import {
   Calendar,
   Layers,
   Loader2,
+  Landmark,
 } from "lucide-react";
 
 import { QuickExpenseModal } from "./QuickExpenseModal";
@@ -29,6 +30,7 @@ import { CapitalContributionModal } from "./CapitalContributionModal";
 import { WithdrawModal } from "./WithdrawModal";
 import { PartnerShareModal } from "./PartnerShareModal";
 import { LedgerTable } from "./LedgerTable";
+import { LoanModal } from "./LoanModal";
 
 interface FinancesClientProps {
   initialMetrics: any;
@@ -51,6 +53,7 @@ export function FinancesClient({ initialMetrics }: FinancesClientProps) {
   // Modals state
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
   const [capitalModalOpen, setCapitalModalOpen] = useState(false);
+  const [loanModalOpen, setLoanModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
   const [selectedPartnerForWithdraw, setSelectedPartnerForWithdraw] = useState<any>(null);
@@ -129,6 +132,13 @@ export function FinancesClient({ initialMetrics }: FinancesClientProps) {
           >
             <Percent className="w-3.5 h-3.5 text-mute" />
             <span>Equity Split</span>
+          </button>
+          <button
+            onClick={() => setLoanModalOpen(true)}
+            className="btn btn-sm btn-secondary"
+          >
+            <Landmark className="w-3.5 h-3.5 text-purple-600" />
+            <span>Loans & Debt</span>
           </button>
         </div>
       </div>
@@ -499,6 +509,54 @@ export function FinancesClient({ initialMetrics }: FinancesClientProps) {
             )}
           </div>
 
+          {/* Financing & Loans Overview Card */}
+          <div className="card space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-hairline">
+              <h2 className="text-h3 flex items-center gap-2">
+                <Landmark className="w-4 h-4 text-purple-600" />
+                <span>Debt & Financing Overview</span>
+              </h2>
+              <button
+                onClick={() => setLoanModalOpen(true)}
+                className="btn btn-sm btn-secondary text-xs"
+              >
+                Manage Debt / Repay
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="well p-3 space-y-1 border-purple-200/60 bg-purple-50/10">
+                <span className="eyebrow text-[10px] text-purple-700 block">Outstanding Debt</span>
+                <span className="text-lg font-bold text-ink tabular-nums block">
+                  {formatPKR(metrics.loans?.outstandingLoanDebt || 0)}
+                </span>
+                <span className="text-[11px] text-mute block">
+                  Total unpaid loan principal
+                </span>
+              </div>
+
+              <div className="well p-3 space-y-1">
+                <span className="eyebrow text-[10px] block">Total Borrowed</span>
+                <span className="text-lg font-semibold text-ink tabular-nums block">
+                  {formatPKR(metrics.loans?.totalLoanBorrowed || 0)}
+                </span>
+                <span className="text-[11px] text-mute block">
+                  All-time loan disbursements
+                </span>
+              </div>
+
+              <div className="well p-3 space-y-1">
+                <span className="eyebrow text-[10px] block">Total Principal Repaid</span>
+                <span className="text-lg font-semibold text-ink tabular-nums block">
+                  {formatPKR(metrics.loans?.totalLoanRepaid || 0)}
+                </span>
+                <span className="text-[11px] text-mute block">
+                  All-time principal settlements
+                </span>
+              </div>
+            </div>
+          </div>
+
           {/* Master Accounting Identity Card */}
           <div className="well p-4 border border-hairline text-xs space-y-2">
             <div className="flex items-center gap-2 font-mono text-ink font-semibold">
@@ -506,7 +564,7 @@ export function FinancesClient({ initialMetrics }: FinancesClientProps) {
               <span>Accounting Identity Reconciliation</span>
             </div>
             <p className="text-mute font-mono text-[11px] leading-relaxed">
-              Business Cash ({formatPKR(metrics.businessCash)}) = Capital Contributions ({formatPKR(metrics.totalCapitalContributions)}) + All-Time Net Profit ({formatPKR(metrics.allTimeNetProfit)}) − Withdrawals ({formatPKR(metrics.totalWithdrawals)})
+              Business Cash ({formatPKR(metrics.businessCash)}) = Capital Contributions ({formatPKR(metrics.totalCapitalContributions)}) + All-Time Net Profit ({formatPKR(metrics.allTimeNetProfit)}) + Outstanding Debt ({formatPKR(metrics.loans?.outstandingLoanDebt || 0)}) − Withdrawals ({formatPKR(metrics.totalWithdrawals)})
             </p>
             <p className="text-mute text-[11px]">
               Every rupee is strictly accounted for in immutable double-entry ledger rows.
@@ -532,6 +590,14 @@ export function FinancesClient({ initialMetrics }: FinancesClientProps) {
         isOpen={capitalModalOpen}
         onClose={() => setCapitalModalOpen(false)}
         onSuccess={refreshMetrics}
+      />
+
+      <LoanModal
+        isOpen={loanModalOpen}
+        onClose={() => setLoanModalOpen(false)}
+        onSuccess={refreshMetrics}
+        outstandingDebt={metrics.loans?.outstandingLoanDebt || 0}
+        businessCash={metrics.businessCash}
       />
 
       <PartnerShareModal
