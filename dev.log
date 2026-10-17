@@ -196,3 +196,5 @@ https://react.dev/link/hydration-mismatch
 
  GET /login?redirect=%2Ftest-scroll 200 in 314ms (next.js: 134ms, proxy.ts: 14ms, application-code: 166ms)
  GET /login?redirect=%2Ftest-scroll 200 in 84ms (next.js: 6ms, proxy.ts: 8ms, application-code: 70ms)
+ GET /login?redirect=%2Ftest-low-stock 200 in 970ms (next.js: 473ms, proxy.ts: 41ms, application-code: 455ms)
+ GET /login?redirect=%2Ftest-low-stock 200 in 307ms (next.js: 109ms, proxy.ts: 9ms, application-code: 188ms)

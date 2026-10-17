@@ -156,17 +156,26 @@ export default async function DashboardPage() {
       {/* Low Stock Product Warnings Section */}
       {metrics.lowStockProducts.length > 0 && (
         <div className="card border-error/30">
-          <div className="flex items-center justify-between gap-4 mb-5">
-            <div className="flex items-center gap-3">
-              <span className="badge badge-error">
-                <AlertTriangle className="w-3 h-3" />
-                Action needed
-              </span>
-              <h2 className="text-h3">Critical Low Stock Perfumes</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="flex items-center justify-between sm:justify-start gap-4">
+                <span className="badge badge-error shrink-0">
+                  <AlertTriangle className="w-3 h-3" />
+                  Action needed
+                </span>
+                <Link
+                  href="/batch-production-v2"
+                  className="sm:hidden text-link hover:text-link-deep text-sm font-medium flex items-center gap-1 shrink-0"
+                >
+                  <span>Produce Now</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+              <h2 className="text-h3 sm:mt-0 mt-1">Critical Low Stock Perfumes</h2>
             </div>
             <Link
               href="/batch-production-v2"
-              className="text-link hover:text-link-deep text-sm font-medium flex items-center gap-1 shrink-0"
+              className="hidden sm:flex text-link hover:text-link-deep text-sm font-medium items-center gap-1 shrink-0"
             >
               <span>Produce Now</span>
               <ArrowRight className="w-3.5 h-3.5" />
