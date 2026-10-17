@@ -11,14 +11,14 @@ import {
   Clock, 
   RotateCcw, 
   MessageSquare, 
-  X,
-  User,
-  Calendar,
-  CreditCard,
-  Pencil,
-  Search,
-  Sparkles,
-  DollarSign
+  X, 
+  User, 
+  Calendar, 
+  CreditCard, 
+  Pencil, 
+  Search, 
+  Sparkles, 
+  DollarSign 
 } from "lucide-react";
 import { PaymentStatus, PaymentOption } from "@prisma/client";
 
@@ -34,6 +34,7 @@ export default function SalesPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -107,8 +108,7 @@ export default function SalesPage() {
     }
   }
 
-  function resetAllFilters() {
-    setSearchQuery("");
+  function resetModalFilters() {
     setFilterPerfume("ALL");
     setMinPrice("");
     setMaxPrice("");
@@ -119,16 +119,22 @@ export default function SalesPage() {
     setFilterOption("ALL");
   }
 
-  const hasActiveFilters = Boolean(
-    searchQuery.trim() ||
-    filterPerfume !== "ALL" ||
-    minPrice !== "" ||
-    maxPrice !== "" ||
-    startDate !== "" ||
-    endDate !== "" ||
-    filterStatus !== "ALL" ||
-    filterOption !== "ALL"
-  );
+  function resetAllFilters() {
+    setSearchQuery("");
+    resetModalFilters();
+  }
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filterPerfume !== "ALL") count++;
+    if (minPrice !== "" || maxPrice !== "") count++;
+    if (startDate !== "" || endDate !== "") count++;
+    if (filterStatus !== "ALL") count++;
+    if (filterOption !== "ALL") count++;
+    return count;
+  }, [filterPerfume, minPrice, maxPrice, startDate, endDate, filterStatus, filterOption]);
+
+  const hasAnyFilterOrSearch = activeFilterCount > 0 || Boolean(searchQuery.trim());
 
   // Filtered sales memo
   const filteredSales = useMemo(() => {
@@ -196,10 +202,6 @@ export default function SalesPage() {
 
   const totalFilteredAmount = useMemo(() => {
     return filteredSales.reduce((acc, sale) => acc + (sale.total_price || 0), 0);
-  }, [filteredSales]);
-
-  const totalFilteredBottles = useMemo(() => {
-    return filteredSales.reduce((acc, sale) => acc + (sale.quantity || 0), 0);
   }, [filteredSales]);
 
   function handleProductSelect(id: string) {
@@ -318,283 +320,9 @@ export default function SalesPage() {
         </button>
       </div>
 
-      {/* Search and Filters Section */}
-      <div className="card space-y-4">
-        {/* Top Bar: Search Input & Reset Button */}
-        <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-mute absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search entries by customer name..."
-              className="input pl-10 pr-9 w-full"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                title="Clear search"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-mute hover:text-ink transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-
-          {hasActiveFilters && (
-            <button
-              type="button"
-              onClick={resetAllFilters}
-              className="btn btn-sm btn-secondary text-xs flex items-center gap-1.5 self-start md:self-auto"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reset Filters</span>
-            </button>
-          )}
-        </div>
-
-        {/* Filter Controls Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-3 border-t border-hairline">
-          {/* 1. Filter by Perfume */}
-          <div>
-            <label className="field-label flex items-center gap-1.5 text-xs text-mute">
-              <Sparkles className="w-3.5 h-3.5 text-mute" />
-              <span>Perfume</span>
-            </label>
-            <select
-              value={filterPerfume}
-              onChange={(e) => setFilterPerfume(e.target.value)}
-              className="input text-xs"
-            >
-              <option value="ALL">All Perfumes ({products.length})</option>
-              {products.map((prod) => (
-                <option key={prod.id} value={prod.id}>
-                  {prod.name} ({prod.perfume_quantity_ml}ml)
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* 2. Filter by Price */}
-          <div>
-            <label className="field-label flex items-center gap-1.5 text-xs text-mute">
-              <DollarSign className="w-3.5 h-3.5 text-mute" />
-              <span>Price Range (PKR)</span>
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                placeholder="Min PKR"
-                min="0"
-                value={minPrice}
-                onChange={(e) => setMinPrice(e.target.value)}
-                className="input text-xs w-1/2"
-              />
-              <span className="text-mute text-xs">-</span>
-              <input
-                type="number"
-                placeholder="Max PKR"
-                min="0"
-                value={maxPrice}
-                onChange={(e) => setMaxPrice(e.target.value)}
-                className="input text-xs w-1/2"
-              />
-            </div>
-          </div>
-
-          {/* 3. Filter by Date Range */}
-          <div>
-            <label className="field-label flex items-center gap-1.5 text-xs text-mute">
-              <Calendar className="w-3.5 h-3.5 text-mute" />
-              <span>Date Range</span>
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => {
-                  setStartDate(e.target.value);
-                  setDatePreset("CUSTOM");
-                }}
-                className="input text-xs w-1/2"
-                title="Start date"
-              />
-              <span className="text-mute text-xs">-</span>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => {
-                  setEndDate(e.target.value);
-                  setDatePreset("CUSTOM");
-                }}
-                className="input text-xs w-1/2"
-                title="End date"
-              />
-            </div>
-          </div>
-
-          {/* 4. Filter by Status & Method */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="field-label text-xs text-mute">Status</label>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="input text-xs"
-              >
-                <option value="ALL">All Status</option>
-                <option value="PAYED">Payed</option>
-                <option value="PENDING">Pending</option>
-                <option value="REFUNDED">Refunded</option>
-              </select>
-            </div>
-            <div>
-              <label className="field-label text-xs text-mute">Method</label>
-              <select
-                value={filterOption}
-                onChange={(e) => setFilterOption(e.target.value)}
-                className="input text-xs"
-              >
-                <option value="ALL">All Methods</option>
-                <option value="CASH">Cash</option>
-                <option value="EASYPAISA">Easypaisa</option>
-                <option value="JAZZCASH">JazzCash</option>
-                <option value="BANK_TRANSFER">Bank</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Date Presets Row */}
-        <div className="flex flex-wrap items-center gap-1.5 pt-1">
-          <span className="text-xs text-mute mr-1">Date presets:</span>
-          {[
-            { label: "All Time", value: "ALL" },
-            { label: "Today", value: "TODAY" },
-            { label: "Last 7 Days", value: "LAST_7" },
-            { label: "This Month", value: "THIS_MONTH" },
-            { label: "Last Month", value: "LAST_MONTH" },
-          ].map((preset) => (
-            <button
-              key={preset.value}
-              type="button"
-              onClick={() => applyDatePreset(preset.value)}
-              className={`btn btn-sm text-xs py-0.5 px-2.5 h-6 rounded-full border transition-colors ${
-                datePreset === preset.value
-                  ? "bg-primary text-on-primary border-primary"
-                  : "bg-canvas text-body border-hairline hover:border-mute"
-              }`}
-            >
-              {preset.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Active Filters Summary & Badges */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-hairline text-xs">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-mute font-medium">
-              Showing <strong className="text-ink">{filteredSales.length}</strong> of {sales.length} orders
-            </span>
-
-            {/* Individual active filter chips */}
-            {searchQuery && (
-              <span className="badge badge-neutral gap-1 pl-2 pr-1">
-                Name: &quot;{searchQuery}&quot;
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  className="hover:text-ink ml-0.5"
-                  title="Remove customer name filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-            {filterPerfume !== "ALL" && (
-              <span className="badge badge-neutral gap-1 pl-2 pr-1">
-                Perfume: {products.find(p => p.id === filterPerfume)?.name || "Selected"}
-                <button
-                  type="button"
-                  onClick={() => setFilterPerfume("ALL")}
-                  className="hover:text-ink ml-0.5"
-                  title="Remove perfume filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-            {(minPrice !== "" || maxPrice !== "") && (
-              <span className="badge badge-neutral gap-1 pl-2 pr-1">
-                Price: {minPrice ? `PKR ${minPrice}` : "0"} - {maxPrice ? `PKR ${maxPrice}` : "Any"}
-                <button
-                  type="button"
-                  onClick={() => { setMinPrice(""); setMaxPrice(""); }}
-                  className="hover:text-ink ml-0.5"
-                  title="Remove price filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-            {(startDate || endDate) && (
-              <span className="badge badge-neutral gap-1 pl-2 pr-1">
-                Date: {startDate || "Start"} to {endDate || "Today"}
-                <button
-                  type="button"
-                  onClick={() => applyDatePreset("ALL")}
-                  className="hover:text-ink ml-0.5"
-                  title="Remove date filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-            {filterStatus !== "ALL" && (
-              <span className="badge badge-neutral gap-1 pl-2 pr-1">
-                Status: {filterStatus}
-                <button
-                  type="button"
-                  onClick={() => setFilterStatus("ALL")}
-                  className="hover:text-ink ml-0.5"
-                  title="Remove status filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-            {filterOption !== "ALL" && (
-              <span className="badge badge-neutral gap-1 pl-2 pr-1">
-                Method: {filterOption}
-                <button
-                  type="button"
-                  onClick={() => setFilterOption("ALL")}
-                  className="hover:text-ink ml-0.5"
-                  title="Remove method filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-          </div>
-
-          {/* Quick Metrics of filtered orders */}
-          <div className="flex items-center gap-4 text-mute">
-            <span>
-              Bottles: <strong className="text-ink tabular-nums">{totalFilteredBottles}</strong>
-            </span>
-            <span>
-              Filtered Total: <strong className="text-ink font-semibold tabular-nums">{formatPKR(totalFilteredAmount)}</strong>
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Sales Table */}
+      {/* Sales Table Card */}
       {loading ? (
-        <div className="text-center py-16">
+        <div className="card text-center py-16">
           <div className="animate-spin w-6 h-6 border-2 border-hairline border-t-ink rounded-full mx-auto mb-3"></div>
           <p className="text-body text-sm">Loading sales orders...</p>
         </div>
@@ -613,131 +341,485 @@ export default function SalesPage() {
             Record Sale
           </button>
         </div>
-      ) : filteredSales.length === 0 ? (
-        <div className="card border-dashed text-center py-16">
-          <Filter className="w-6 h-6 text-faint mx-auto mb-3" />
-          <h3 className="text-h3">No Matching Sales Found</h3>
-          <p className="text-body text-sm max-w-sm mx-auto mt-1">
-            No sales orders match your active search and filter criteria. Try adjusting your parameters.
-          </p>
-          <button
-            onClick={resetAllFilters}
-            className="btn btn-sm btn-secondary mt-4"
-          >
-            <RotateCcw className="w-4 h-4" />
-            Clear All Filters
-          </button>
-        </div>
       ) : (
         <div className="card p-0 overflow-hidden">
-          <div className="px-6 pt-6 pb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          {/* Sales Table Header with Left: Title & Subtitle, Right: Filter button & Search Bar */}
+          <div className="px-6 py-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h2 className="text-h3">Sales Orders</h2>
               <p className="text-xs text-mute mt-1">
-                {hasActiveFilters
-                  ? `Showing ${filteredSales.length} of ${sales.length} orders matching filters`
-                  : `Every recorded customer order (${sales.length} total)`}
+                Every recorded customer order ({sales.length} total)
               </p>
             </div>
-            {hasActiveFilters && (
-              <span className="text-xs text-mute">
-                Filtered Revenue: <strong className="text-ink font-semibold tabular-nums">{formatPKR(totalFilteredAmount)}</strong>
-              </span>
-            )}
+
+            {/* Top Right: Filter Button (before search bar) + Search Bar */}
+            <div className="flex items-center gap-2.5 self-stretch md:self-auto">
+              {/* Filter Button */}
+              <button
+                type="button"
+                onClick={() => setIsFilterModalOpen(true)}
+                className={`btn btn-sm ${
+                  activeFilterCount > 0 ? "btn-primary" : "btn-secondary"
+                } flex items-center gap-1.5`}
+                title="Open filters"
+              >
+                <Filter className="w-3.5 h-3.5" />
+                <span>Filters</span>
+                {activeFilterCount > 0 && (
+                  <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[11px] font-semibold bg-white text-ink rounded-full">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Search Bar */}
+              <div className="relative flex-1 md:w-64">
+                <Search className="w-4 h-4 text-mute absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search entries by name..."
+                  className="input pl-9 pr-8 text-xs py-1.5 h-8 w-full"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    title="Clear search"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-mute hover:text-ink transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
 
-          <div className="overflow-x-auto border-t border-hairline">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Customer</th>
-                  <th>Perfume Purchased</th>
-                  <th>Qty</th>
-                  <th>Total Amount</th>
-                  <th>Payment Method</th>
-                  <th>Payment Status</th>
-                  <th>Review Given</th>
-                  <th>Date</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredSales.map((sale) => (
-                  <tr key={sale.id}>
-                    <td className="font-medium">
-                      {sale.customer_name}
-                      {sale.notes && (
-                        <span className="block text-xs font-normal text-mute">
-                          {sale.notes}
-                        </span>
-                      )}
-                    </td>
-                    <td className="text-body">
-                      {sale.product?.name || "Deleted Product"}
-                    </td>
-                    <td className="tabular-nums">{sale.quantity}</td>
-                    <td className="font-medium tabular-nums">
-                      {formatPKR(sale.total_price)}
-                    </td>
-                    <td>
-                      <span className="badge badge-neutral">
-                        {PAYMENT_OPTION_LABELS[sale.payment_option as keyof typeof PAYMENT_OPTION_LABELS] || sale.payment_option}
-                      </span>
-                    </td>
+          {/* Active Filter Chips Bar (Shown when any filter or search query is applied) */}
+          {hasAnyFilterOrSearch && (
+            <div className="px-6 py-2.5 bg-canvas border-t border-hairline flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-mute mr-1 font-medium">Active:</span>
+                {searchQuery && (
+                  <span className="badge badge-neutral gap-1 pl-2 pr-1">
+                    Name: &quot;{searchQuery}&quot;
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="hover:text-ink ml-0.5"
+                      title="Clear name search"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+                {filterPerfume !== "ALL" && (
+                  <span className="badge badge-neutral gap-1 pl-2 pr-1">
+                    Perfume: {products.find(p => p.id === filterPerfume)?.name || "Selected"}
+                    <button
+                      type="button"
+                      onClick={() => setFilterPerfume("ALL")}
+                      className="hover:text-ink ml-0.5"
+                      title="Clear perfume filter"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+                {(minPrice !== "" || maxPrice !== "") && (
+                  <span className="badge badge-neutral gap-1 pl-2 pr-1">
+                    Price: {minPrice ? `PKR ${minPrice}` : "0"} - {maxPrice ? `PKR ${maxPrice}` : "Any"}
+                    <button
+                      type="button"
+                      onClick={() => { setMinPrice(""); setMaxPrice(""); }}
+                      className="hover:text-ink ml-0.5"
+                      title="Clear price filter"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+                {(startDate || endDate) && (
+                  <span className="badge badge-neutral gap-1 pl-2 pr-1">
+                    Date: {startDate || "Start"} to {endDate || "Today"}
+                    <button
+                      type="button"
+                      onClick={() => applyDatePreset("ALL")}
+                      className="hover:text-ink ml-0.5"
+                      title="Clear date filter"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+                {filterStatus !== "ALL" && (
+                  <span className="badge badge-neutral gap-1 pl-2 pr-1">
+                    Status: {filterStatus}
+                    <button
+                      type="button"
+                      onClick={() => setFilterStatus("ALL")}
+                      className="hover:text-ink ml-0.5"
+                      title="Clear status filter"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+                {filterOption !== "ALL" && (
+                  <span className="badge badge-neutral gap-1 pl-2 pr-1">
+                    Method: {filterOption}
+                    <button
+                      type="button"
+                      onClick={() => setFilterOption("ALL")}
+                      className="hover:text-ink ml-0.5"
+                      title="Clear method filter"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={resetAllFilters}
+                  className="text-xs text-mute hover:text-ink underline ml-1 cursor-pointer"
+                >
+                  Clear all
+                </button>
+              </div>
 
-                    {/* Status Dropdown / Badge Toggle */}
-                    <td>
-                      <select
-                        value={sale.payment_status}
-                        onChange={(e) => handleStatusUpdate(sale.id, e.target.value as PaymentStatus)}
-                        className={`badge cursor-pointer ${
-                          PAYMENT_STATUS_COLORS[sale.payment_status as keyof typeof PAYMENT_STATUS_COLORS] || ""
-                        }`}
-                      >
-                        <option value="PAYED">PAYED</option>
-                        <option value="PENDING">PENDING</option>
-                        <option value="REFUNDED">REFUNDED</option>
-                      </select>
-                    </td>
+              <div className="flex items-center gap-3 text-mute">
+                <span>
+                  Showing <strong className="text-ink">{filteredSales.length}</strong> of {sales.length}
+                </span>
+                <span>•</span>
+                <span>
+                  Filtered Total: <strong className="text-ink font-semibold tabular-nums">{formatPKR(totalFilteredAmount)}</strong>
+                </span>
+              </div>
+            </div>
+          )}
 
-                    {/* Review Given Checkbox Toggle */}
-                    <td>
-                      <button
-                        onClick={() => handleToggleReview(sale.id, sale.review_given)}
-                        className={`badge cursor-pointer ${
-                          sale.review_given ? "badge-success" : "badge-neutral"
-                        }`}
-                      >
-                        {sale.review_given ? (
-                          <>
-                            <MessageSquare className="w-3.5 h-3.5" />
-                            <span>Yes</span>
-                          </>
-                        ) : (
-                          <>
-                            <MessageSquare className="w-3.5 h-3.5" />
-                            <span>No</span>
-                          </>
-                        )}
-                      </button>
-                    </td>
-
-                    <td className="text-mute text-xs">
-                      {formatDate(sale.date_purchased)}
-                    </td>
-                    <td>
-                      <button
-                        onClick={() => openEditModal(sale)}
-                        className="btn btn-sm btn-secondary"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                        <span>Edit</span>
-                      </button>
-                    </td>
+          {/* Table or Filter Empty State */}
+          {filteredSales.length === 0 ? (
+            <div className="text-center py-16 px-4 border-t border-hairline">
+              <Filter className="w-6 h-6 text-faint mx-auto mb-3" />
+              <h3 className="text-h3">No Matching Sales Found</h3>
+              <p className="text-body text-sm max-w-sm mx-auto mt-1">
+                No sales orders match your active search and filter criteria. Try adjusting your parameters.
+              </p>
+              <button
+                onClick={resetAllFilters}
+                className="btn btn-sm btn-secondary mt-4"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Clear All Filters
+              </button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto border-t border-hairline">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Customer</th>
+                    <th>Perfume Purchased</th>
+                    <th>Qty</th>
+                    <th>Total Amount</th>
+                    <th>Payment Method</th>
+                    <th>Payment Status</th>
+                    <th>Review Given</th>
+                    <th>Date</th>
+                    <th>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filteredSales.map((sale) => (
+                    <tr key={sale.id}>
+                      <td className="font-medium">
+                        {sale.customer_name}
+                        {sale.notes && (
+                          <span className="block text-xs font-normal text-mute">
+                            {sale.notes}
+                          </span>
+                        )}
+                      </td>
+                      <td className="text-body">
+                        {sale.product?.name || "Deleted Product"}
+                      </td>
+                      <td className="tabular-nums">{sale.quantity}</td>
+                      <td className="font-medium tabular-nums">
+                        {formatPKR(sale.total_price)}
+                      </td>
+                      <td>
+                        <span className="badge badge-neutral">
+                          {PAYMENT_OPTION_LABELS[sale.payment_option as keyof typeof PAYMENT_OPTION_LABELS] || sale.payment_option}
+                        </span>
+                      </td>
+
+                      {/* Status Dropdown / Badge Toggle */}
+                      <td>
+                        <select
+                          value={sale.payment_status}
+                          onChange={(e) => handleStatusUpdate(sale.id, e.target.value as PaymentStatus)}
+                          className={`badge cursor-pointer ${
+                            PAYMENT_STATUS_COLORS[sale.payment_status as keyof typeof PAYMENT_STATUS_COLORS] || ""
+                          }`}
+                        >
+                          <option value="PAYED">PAYED</option>
+                          <option value="PENDING">PENDING</option>
+                          <option value="REFUNDED">REFUNDED</option>
+                        </select>
+                      </td>
+
+                      {/* Review Given Checkbox Toggle */}
+                      <td>
+                        <button
+                          onClick={() => handleToggleReview(sale.id, sale.review_given)}
+                          className={`badge cursor-pointer ${
+                            sale.review_given ? "badge-success" : "badge-neutral"
+                          }`}
+                        >
+                          {sale.review_given ? (
+                            <>
+                              <MessageSquare className="w-3.5 h-3.5" />
+                              <span>Yes</span>
+                            </>
+                          ) : (
+                            <>
+                              <MessageSquare className="w-3.5 h-3.5" />
+                              <span>No</span>
+                            </>
+                          )}
+                        </button>
+                      </td>
+
+                      <td className="text-mute text-xs">
+                        {formatDate(sale.date_purchased)}
+                      </td>
+                      <td>
+                        <button
+                          onClick={() => openEditModal(sale)}
+                          className="btn btn-sm btn-secondary"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          <span>Edit</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Filter Modal with Two-Line Layout */}
+      {isFilterModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-panel w-full max-w-3xl p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-hairline pb-4">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-mute" />
+                <h3 className="text-h3">Filter Sales Orders</h3>
+                {activeFilterCount > 0 && (
+                  <span className="badge badge-neutral text-xs">
+                    {activeFilterCount} active
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsFilterModalOpen(false)}
+                className="btn btn-sm btn-secondary"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Modal Body: Filters in Two Lines */}
+            <div className="space-y-4">
+              {/* LINE 1: Perfume, Price Range, Date Range */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* 1. Filter by Perfume */}
+                <div>
+                  <label className="field-label flex items-center gap-1.5 text-xs text-mute">
+                    <Sparkles className="w-3.5 h-3.5 text-mute" />
+                    <span>Perfume</span>
+                  </label>
+                  <select
+                    value={filterPerfume}
+                    onChange={(e) => setFilterPerfume(e.target.value)}
+                    className="input text-xs"
+                  >
+                    <option value="ALL">All Perfumes ({products.length})</option>
+                    {products.map((prod) => (
+                      <option key={prod.id} value={prod.id}>
+                        {prod.name} ({prod.perfume_quantity_ml}ml)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 2. Filter by Price Range */}
+                <div>
+                  <label className="field-label flex items-center gap-1.5 text-xs text-mute">
+                    <DollarSign className="w-3.5 h-3.5 text-mute" />
+                    <span>Price Range (PKR)</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      placeholder="Min PKR"
+                      min="0"
+                      value={minPrice}
+                      onChange={(e) => setMinPrice(e.target.value)}
+                      className="input text-xs w-1/2"
+                    />
+                    <span className="text-mute text-xs">-</span>
+                    <input
+                      type="number"
+                      placeholder="Max PKR"
+                      min="0"
+                      value={maxPrice}
+                      onChange={(e) => setMaxPrice(e.target.value)}
+                      className="input text-xs w-1/2"
+                    />
+                  </div>
+                </div>
+
+                {/* 3. Filter by Date Range */}
+                <div>
+                  <label className="field-label flex items-center gap-1.5 text-xs text-mute">
+                    <Calendar className="w-3.5 h-3.5 text-mute" />
+                    <span>Date Range</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => {
+                        setStartDate(e.target.value);
+                        setDatePreset("CUSTOM");
+                      }}
+                      className="input text-xs w-1/2"
+                      title="Start date"
+                    />
+                    <span className="text-mute text-xs">-</span>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => {
+                        setEndDate(e.target.value);
+                        setDatePreset("CUSTOM");
+                      }}
+                      className="input text-xs w-1/2"
+                      title="End date"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* LINE 2: Status, Method, Date Presets */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-hairline">
+                {/* 4. Payment Status */}
+                <div>
+                  <label className="field-label flex items-center gap-1.5 text-xs text-mute">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-mute" />
+                    <span>Payment Status</span>
+                  </label>
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="input text-xs"
+                  >
+                    <option value="ALL">All Payment Statuses</option>
+                    <option value="PAYED">Payed (Completed)</option>
+                    <option value="PENDING">Pending (Unpaid)</option>
+                    <option value="REFUNDED">Refunded</option>
+                  </select>
+                </div>
+
+                {/* 5. Payment Method */}
+                <div>
+                  <label className="field-label flex items-center gap-1.5 text-xs text-mute">
+                    <CreditCard className="w-3.5 h-3.5 text-mute" />
+                    <span>Payment Method</span>
+                  </label>
+                  <select
+                    value={filterOption}
+                    onChange={(e) => setFilterOption(e.target.value)}
+                    className="input text-xs"
+                  >
+                    <option value="ALL">All Payment Methods</option>
+                    <option value="CASH">Cash</option>
+                    <option value="EASYPAISA">Easypaisa</option>
+                    <option value="JAZZCASH">JazzCash</option>
+                    <option value="BANK_TRANSFER">Bank Transfer</option>
+                  </select>
+                </div>
+
+                {/* 6. Quick Date Presets */}
+                <div>
+                  <label className="field-label flex items-center gap-1.5 text-xs text-mute">
+                    <Clock className="w-3.5 h-3.5 text-mute" />
+                    <span>Quick Date Presets</span>
+                  </label>
+                  <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                    {[
+                      { label: "All", value: "ALL" },
+                      { label: "Today", value: "TODAY" },
+                      { label: "7 Days", value: "LAST_7" },
+                      { label: "Month", value: "THIS_MONTH" },
+                      { label: "Last Mo", value: "LAST_MONTH" },
+                    ].map((preset) => (
+                      <button
+                        key={preset.value}
+                        type="button"
+                        onClick={() => applyDatePreset(preset.value)}
+                        className={`btn btn-sm text-[11px] py-0 px-2.5 h-7 rounded-full border transition-colors ${
+                          datePreset === preset.value
+                            ? "bg-primary text-on-primary border-primary"
+                            : "bg-canvas text-body border-hairline hover:border-mute"
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between pt-4 border-t border-hairline">
+              <div className="text-xs text-mute">
+                <span>Matching: <strong className="text-ink">{filteredSales.length}</strong> orders</span>
+                <span className="mx-2">•</span>
+                <span>Revenue: <strong className="text-ink font-semibold">{formatPKR(totalFilteredAmount)}</strong></span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {activeFilterCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={resetModalFilters}
+                    className="btn btn-sm btn-secondary text-xs flex items-center gap-1"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Reset</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsFilterModalOpen(false)}
+                  className="btn btn-sm btn-primary text-xs"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
