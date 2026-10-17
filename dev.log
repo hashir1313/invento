@@ -1,0 +1,195 @@
+$ next dev
+▲ Next.js 16.3.4 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.2:3000
+✓ Ready in 654ms
+✓ Running next.config.ts took 56ms
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+
+○ Compiling /login ...
+ GET /login?redirect=%2F 200 in 5.2s (next.js: 4.7s, proxy.ts: 8ms, application-code: 494ms)
+ GET /login 200 in 80ms (next.js: 12ms, proxy.ts: 7ms, application-code: 60ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <LoadingBoundary name="login/" loading={null}>
+      <HTTPAccessFallbackBoundary notFound={undefined} forbidden={undefined} unauthorized={undefined}>
+        <RedirectBoundary>
+          <RedirectErrorBoundary router={{...}}>
+            <InnerLayoutRouter url="/login" tree={[...]} params={{}} cacheNode={{rsc:{...}, ...}} segmentPath={[...]} ...>
+              <SegmentViewNode type="page" pagePath="login/page...">
+                <SegmentTrieNode>
+                <ClientPageRoot Component={function LoginPage} serverProvidedParams={{...}}>
+                  <LoginPage params={Promise} searchParams={Promise}>
+                    <div className="mesh -mx-4...">
+                      <ThemeToggle>
+                      <div className="w-full max...">
+                        <div>
+                        <form onSubmit={function handleSubmit} className="card p-6 s...">
+                          <div className="space-y-4">
+                            <div>
+                              <label>
+                              <input
+                                id="username"
+                                type="text"
+                                value=""
+                                onChange={function onChange}
+                                required={true}
+                                autoComplete="username"
+                                autoFocus={true}
+                                className="input"
+                                placeholder="Enter username"
+-                               style={{caret-color:"transparent"}}
+                              >
+                            <div>
+                              <label>
+                              <input
+                                id="password"
+                                type="password"
+                                value=""
+                                onChange={function onChange}
+                                required={true}
+                                autoComplete="current-password"
+                                className="input"
+                                placeholder="Enter password"
+-                               style={{caret-color:"transparent"}}
+                              >
+                          ...
+              ...
+            ...
+
+ GET /login 200 in 73ms (next.js: 5ms, proxy.ts: 6ms, application-code: 62ms)
+ GET /login 200 in 62ms (next.js: 4ms, proxy.ts: 6ms, application-code: 52ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <LoadingBoundary name="login/" loading={null}>
+      <HTTPAccessFallbackBoundary notFound={undefined} forbidden={undefined} unauthorized={undefined}>
+        <RedirectBoundary>
+          <RedirectErrorBoundary router={{...}}>
+            <InnerLayoutRouter url="/login" tree={[...]} params={{}} cacheNode={{rsc:{...}, ...}} segmentPath={[...]} ...>
+              <SegmentViewNode type="page" pagePath="login/page...">
+                <SegmentTrieNode>
+                <ClientPageRoot Component={function LoginPage} serverProvidedParams={{...}}>
+                  <LoginPage params={Promise} searchParams={Promise}>
+                    <div className="mesh -mx-4...">
+                      <ThemeToggle>
+                      <div className="w-full max...">
+                        <div>
+                        <form onSubmit={function handleSubmit} className="card p-6 s...">
+                          <div className="space-y-4">
+                            <div>
+                              <label>
+                              <input
+                                id="username"
+                                type="text"
+                                value=""
+                                onChange={function onChange}
+                                required={true}
+                                autoComplete="username"
+                                autoFocus={true}
+                                className="input"
+                                placeholder="Enter username"
+-                               style={{caret-color:"transparent"}}
+                              >
+                            <div>
+                              <label>
+                              <input
+                                id="password"
+                                type="password"
+                                value=""
+                                onChange={function onChange}
+                                required={true}
+                                autoComplete="current-password"
+                                className="input"
+                                placeholder="Enter password"
+-                               style={{caret-color:"transparent"}}
+                              >
+                          ...
+              ...
+            ...
+
+ GET /login?redirect=%2Ftest-navbar 200 in 285ms (next.js: 133ms, proxy.ts: 9ms, application-code: 144ms)
+ GET /login?redirect=%2Ftest-navbar 200 in 62ms (next.js: 5ms, proxy.ts: 6ms, application-code: 51ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <LoadingBoundary name="login/" loading={null}>
+      <HTTPAccessFallbackBoundary notFound={undefined} forbidden={undefined} unauthorized={undefined}>
+        <RedirectBoundary>
+          <RedirectErrorBoundary router={{...}}>
+            <InnerLayoutRouter url="/login?red..." tree={[...]} params={{}} cacheNode={{rsc:{...}, ...}} ...>
+              <SegmentViewNode type="page" pagePath="login/page...">
+                <SegmentTrieNode>
+                <ClientPageRoot Component={function LoginPage} serverProvidedParams={{...}}>
+                  <LoginPage params={Promise} searchParams={Promise}>
+                    <div className="mesh -mx-4...">
+                      <ThemeToggle>
+                      <div className="w-full max...">
+                        <div>
+                        <form onSubmit={function handleSubmit} className="card p-6 s...">
+                          <div className="space-y-4">
+                            <div>
+                              <label>
+                              <input
+                                id="username"
+                                type="text"
+                                value=""
+                                onChange={function onChange}
+                                required={true}
+                                autoComplete="username"
+                                autoFocus={true}
+                                className="input"
+                                placeholder="Enter username"
+-                               style={{caret-color:"transparent"}}
+                              >
+                            <div>
+                              <label>
+                              <input
+                                id="password"
+                                type="password"
+                                value=""
+                                onChange={function onChange}
+                                required={true}
+                                autoComplete="current-password"
+                                className="input"
+                                placeholder="Enter password"
+-                               style={{caret-color:"transparent"}}
+                              >
+                          ...
+              ...
+            ...
