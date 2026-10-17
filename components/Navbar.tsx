@@ -19,10 +19,30 @@ import {
 import { cn } from "@/lib/utils";
 import ThemeToggle from "@/components/ThemeToggle";
 
+import { useEffect } from "react";
+
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    let lastScrollY = window.scrollY;
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY > lastScrollY && currentScrollY > 50) {
+        setIsVisible(false);
+      } else {
+        setIsVisible(true);
+      }
+      lastScrollY = currentScrollY;
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   if (pathname === "/login") return null;
 
@@ -156,7 +176,12 @@ export default function Navbar() {
       )}
 
       {/* Mobile Navigation Bar (Bottom Bar for easy smartphone use) */}
-      <nav className="md:hidden flex justify-around items-center bg-elevated/90 backdrop-blur-md border-t border-hairline py-1.5 fixed bottom-0 left-0 right-0 z-50">
+      <nav
+        className={cn(
+          "md:hidden flex justify-around items-center bg-elevated/90 backdrop-blur-md border-t border-hairline py-1.5 fixed bottom-0 left-0 right-0 z-50 transition-transform duration-300",
+          isVisible ? "translate-y-0" : "translate-y-full"
+        )}
+      >
         {primaryMobileNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
