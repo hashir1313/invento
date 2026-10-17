@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { getSales, getProducts, createSale, updateSale, updateSalePaymentStatus, toggleSaleReview } from "../actions";
 import { formatPKR, formatDate, PAYMENT_STATUS_COLORS, PAYMENT_OPTION_LABELS } from "@/lib/utils";
 import { 
@@ -15,9 +15,19 @@ import {
   User,
   Calendar,
   CreditCard,
-  Pencil
+  Pencil,
+  Search,
+  Sparkles,
+  DollarSign
 } from "lucide-react";
 import { PaymentStatus, PaymentOption } from "@prisma/client";
+
+function toDateInputValue(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
 
 export default function SalesPage() {
   const [sales, setSales] = useState<any[]>([]);
@@ -27,7 +37,14 @@ export default function SalesPage() {
   const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Filters
+  // Search & Filters State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterPerfume, setFilterPerfume] = useState("ALL");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [datePreset, setDatePreset] = useState("ALL");
   const [filterStatus, setFilterStatus] = useState("ALL");
   const [filterOption, setFilterOption] = useState("ALL");
 
@@ -44,12 +61,12 @@ export default function SalesPage() {
 
   useEffect(() => {
     loadData();
-  }, [filterStatus, filterOption]);
+  }, []);
 
   async function loadData() {
     setLoading(true);
     const [salesData, productsData] = await Promise.all([
-      getSales(filterStatus, filterOption),
+      getSales("ALL", "ALL"),
       getProducts(),
     ]);
     setSales(salesData);
@@ -60,6 +77,130 @@ export default function SalesPage() {
     }
     setLoading(false);
   }
+
+  function applyDatePreset(preset: string) {
+    setDatePreset(preset);
+    const now = new Date();
+
+    if (preset === "ALL") {
+      setStartDate("");
+      setEndDate("");
+    } else if (preset === "TODAY") {
+      const todayStr = toDateInputValue(now);
+      setStartDate(todayStr);
+      setEndDate(todayStr);
+    } else if (preset === "LAST_7") {
+      const start = new Date();
+      start.setDate(now.getDate() - 6);
+      setStartDate(toDateInputValue(start));
+      setEndDate(toDateInputValue(now));
+    } else if (preset === "THIS_MONTH") {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      setStartDate(toDateInputValue(start));
+      setEndDate(toDateInputValue(end));
+    } else if (preset === "LAST_MONTH") {
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const end = new Date(now.getFullYear(), now.getMonth(), 0);
+      setStartDate(toDateInputValue(start));
+      setEndDate(toDateInputValue(end));
+    }
+  }
+
+  function resetAllFilters() {
+    setSearchQuery("");
+    setFilterPerfume("ALL");
+    setMinPrice("");
+    setMaxPrice("");
+    setStartDate("");
+    setEndDate("");
+    setDatePreset("ALL");
+    setFilterStatus("ALL");
+    setFilterOption("ALL");
+  }
+
+  const hasActiveFilters = Boolean(
+    searchQuery.trim() ||
+    filterPerfume !== "ALL" ||
+    minPrice !== "" ||
+    maxPrice !== "" ||
+    startDate !== "" ||
+    endDate !== "" ||
+    filterStatus !== "ALL" ||
+    filterOption !== "ALL"
+  );
+
+  // Filtered sales memo
+  const filteredSales = useMemo(() => {
+    return sales.filter((sale) => {
+      // 1. Search by customer name (entry name)
+      if (searchQuery.trim()) {
+        const q = searchQuery.trim().toLowerCase();
+        const matchesName = sale.customer_name?.toLowerCase().includes(q);
+        if (!matchesName) {
+          return false;
+        }
+      }
+
+      // 2. Filter by Perfume
+      if (filterPerfume !== "ALL") {
+        if (sale.product_id !== filterPerfume) {
+          return false;
+        }
+      }
+
+      // 3. Filter by Prices (Total Sale Amount)
+      if (minPrice !== "") {
+        const min = Number(minPrice);
+        if (!isNaN(min) && (sale.total_price || 0) < min) {
+          return false;
+        }
+      }
+      if (maxPrice !== "") {
+        const max = Number(maxPrice);
+        if (!isNaN(max) && (sale.total_price || 0) > max) {
+          return false;
+        }
+      }
+
+      // 4. Filter by Dates
+      if (startDate || endDate) {
+        const saleDate = new Date(sale.date_purchased);
+        const saleDateStr = toDateInputValue(saleDate);
+
+        if (startDate && saleDateStr < startDate) {
+          return false;
+        }
+        if (endDate && saleDateStr > endDate) {
+          return false;
+        }
+      }
+
+      // 5. Filter by Payment Status
+      if (filterStatus !== "ALL") {
+        if (sale.payment_status !== filterStatus) {
+          return false;
+        }
+      }
+
+      // 6. Filter by Payment Method / Option
+      if (filterOption !== "ALL") {
+        if (sale.payment_option !== filterOption) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [sales, searchQuery, filterPerfume, minPrice, maxPrice, startDate, endDate, filterStatus, filterOption]);
+
+  const totalFilteredAmount = useMemo(() => {
+    return filteredSales.reduce((acc, sale) => acc + (sale.total_price || 0), 0);
+  }, [filteredSales]);
+
+  const totalFilteredBottles = useMemo(() => {
+    return filteredSales.reduce((acc, sale) => acc + (sale.quantity || 0), 0);
+  }, [filteredSales]);
 
   function handleProductSelect(id: string) {
     setProductId(id);
@@ -177,42 +318,277 @@ export default function SalesPage() {
         </button>
       </div>
 
-      {/* Filter Bar */}
-      <div className="card flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-mute" />
-          <span className="eyebrow">Filters:</span>
+      {/* Search and Filters Section */}
+      <div className="card space-y-4">
+        {/* Top Bar: Search Input & Reset Button */}
+        <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-mute absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search entries by customer name..."
+              className="input pl-10 pr-9 w-full"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                title="Clear search"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-mute hover:text-ink transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={resetAllFilters}
+              className="btn btn-sm btn-secondary text-xs flex items-center gap-1.5 self-start md:self-auto"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Reset Filters</span>
+            </button>
+          )}
         </div>
 
-        {/* Status Filter */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-mute">Status:</span>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="input w-auto"
-          >
-            <option value="ALL">All Payment Statuses</option>
-            <option value="PAYED">Payed (Completed)</option>
-            <option value="PENDING">Pending (Unpaid)</option>
-            <option value="REFUNDED">Refunded</option>
-          </select>
+        {/* Filter Controls Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-3 border-t border-hairline">
+          {/* 1. Filter by Perfume */}
+          <div>
+            <label className="field-label flex items-center gap-1.5 text-xs text-mute">
+              <Sparkles className="w-3.5 h-3.5 text-mute" />
+              <span>Perfume</span>
+            </label>
+            <select
+              value={filterPerfume}
+              onChange={(e) => setFilterPerfume(e.target.value)}
+              className="input text-xs"
+            >
+              <option value="ALL">All Perfumes ({products.length})</option>
+              {products.map((prod) => (
+                <option key={prod.id} value={prod.id}>
+                  {prod.name} ({prod.perfume_quantity_ml}ml)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* 2. Filter by Price */}
+          <div>
+            <label className="field-label flex items-center gap-1.5 text-xs text-mute">
+              <DollarSign className="w-3.5 h-3.5 text-mute" />
+              <span>Price Range (PKR)</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                placeholder="Min PKR"
+                min="0"
+                value={minPrice}
+                onChange={(e) => setMinPrice(e.target.value)}
+                className="input text-xs w-1/2"
+              />
+              <span className="text-mute text-xs">-</span>
+              <input
+                type="number"
+                placeholder="Max PKR"
+                min="0"
+                value={maxPrice}
+                onChange={(e) => setMaxPrice(e.target.value)}
+                className="input text-xs w-1/2"
+              />
+            </div>
+          </div>
+
+          {/* 3. Filter by Date Range */}
+          <div>
+            <label className="field-label flex items-center gap-1.5 text-xs text-mute">
+              <Calendar className="w-3.5 h-3.5 text-mute" />
+              <span>Date Range</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setDatePreset("CUSTOM");
+                }}
+                className="input text-xs w-1/2"
+                title="Start date"
+              />
+              <span className="text-mute text-xs">-</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setDatePreset("CUSTOM");
+                }}
+                className="input text-xs w-1/2"
+                title="End date"
+              />
+            </div>
+          </div>
+
+          {/* 4. Filter by Status & Method */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="field-label text-xs text-mute">Status</label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="input text-xs"
+              >
+                <option value="ALL">All Status</option>
+                <option value="PAYED">Payed</option>
+                <option value="PENDING">Pending</option>
+                <option value="REFUNDED">Refunded</option>
+              </select>
+            </div>
+            <div>
+              <label className="field-label text-xs text-mute">Method</label>
+              <select
+                value={filterOption}
+                onChange={(e) => setFilterOption(e.target.value)}
+                className="input text-xs"
+              >
+                <option value="ALL">All Methods</option>
+                <option value="CASH">Cash</option>
+                <option value="EASYPAISA">Easypaisa</option>
+                <option value="JAZZCASH">JazzCash</option>
+                <option value="BANK_TRANSFER">Bank</option>
+              </select>
+            </div>
+          </div>
         </div>
 
-        {/* Payment Option Filter */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-mute">Method:</span>
-          <select
-            value={filterOption}
-            onChange={(e) => setFilterOption(e.target.value)}
-            className="input w-auto"
-          >
-            <option value="ALL">All Payment Options</option>
-            <option value="CASH">Cash</option>
-            <option value="EASYPAISA">Easypaisa</option>
-            <option value="JAZZCASH">JazzCash</option>
-            <option value="BANK_TRANSFER">Bank Transfer</option>
-          </select>
+        {/* Quick Date Presets Row */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+          <span className="text-xs text-mute mr-1">Date presets:</span>
+          {[
+            { label: "All Time", value: "ALL" },
+            { label: "Today", value: "TODAY" },
+            { label: "Last 7 Days", value: "LAST_7" },
+            { label: "This Month", value: "THIS_MONTH" },
+            { label: "Last Month", value: "LAST_MONTH" },
+          ].map((preset) => (
+            <button
+              key={preset.value}
+              type="button"
+              onClick={() => applyDatePreset(preset.value)}
+              className={`btn btn-sm text-xs py-0.5 px-2.5 h-6 rounded-full border transition-colors ${
+                datePreset === preset.value
+                  ? "bg-primary text-on-primary border-primary"
+                  : "bg-canvas text-body border-hairline hover:border-mute"
+              }`}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Active Filters Summary & Badges */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-hairline text-xs">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-mute font-medium">
+              Showing <strong className="text-ink">{filteredSales.length}</strong> of {sales.length} orders
+            </span>
+
+            {/* Individual active filter chips */}
+            {searchQuery && (
+              <span className="badge badge-neutral gap-1 pl-2 pr-1">
+                Name: &quot;{searchQuery}&quot;
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="hover:text-ink ml-0.5"
+                  title="Remove customer name filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {filterPerfume !== "ALL" && (
+              <span className="badge badge-neutral gap-1 pl-2 pr-1">
+                Perfume: {products.find(p => p.id === filterPerfume)?.name || "Selected"}
+                <button
+                  type="button"
+                  onClick={() => setFilterPerfume("ALL")}
+                  className="hover:text-ink ml-0.5"
+                  title="Remove perfume filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {(minPrice !== "" || maxPrice !== "") && (
+              <span className="badge badge-neutral gap-1 pl-2 pr-1">
+                Price: {minPrice ? `PKR ${minPrice}` : "0"} - {maxPrice ? `PKR ${maxPrice}` : "Any"}
+                <button
+                  type="button"
+                  onClick={() => { setMinPrice(""); setMaxPrice(""); }}
+                  className="hover:text-ink ml-0.5"
+                  title="Remove price filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {(startDate || endDate) && (
+              <span className="badge badge-neutral gap-1 pl-2 pr-1">
+                Date: {startDate || "Start"} to {endDate || "Today"}
+                <button
+                  type="button"
+                  onClick={() => applyDatePreset("ALL")}
+                  className="hover:text-ink ml-0.5"
+                  title="Remove date filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {filterStatus !== "ALL" && (
+              <span className="badge badge-neutral gap-1 pl-2 pr-1">
+                Status: {filterStatus}
+                <button
+                  type="button"
+                  onClick={() => setFilterStatus("ALL")}
+                  className="hover:text-ink ml-0.5"
+                  title="Remove status filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {filterOption !== "ALL" && (
+              <span className="badge badge-neutral gap-1 pl-2 pr-1">
+                Method: {filterOption}
+                <button
+                  type="button"
+                  onClick={() => setFilterOption("ALL")}
+                  className="hover:text-ink ml-0.5"
+                  title="Remove method filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+          </div>
+
+          {/* Quick Metrics of filtered orders */}
+          <div className="flex items-center gap-4 text-mute">
+            <span>
+              Bottles: <strong className="text-ink tabular-nums">{totalFilteredBottles}</strong>
+            </span>
+            <span>
+              Filtered Total: <strong className="text-ink font-semibold tabular-nums">{formatPKR(totalFilteredAmount)}</strong>
+            </span>
+          </div>
         </div>
       </div>
 
@@ -227,9 +603,7 @@ export default function SalesPage() {
           <ShoppingCart className="w-6 h-6 text-faint mx-auto mb-3" />
           <h3 className="text-h3">No Sales Orders Found</h3>
           <p className="text-body text-sm max-w-sm mx-auto mt-1">
-            {filterStatus !== "ALL" || filterOption !== "ALL"
-              ? "No sales match your active filter criteria."
-              : "Click below to log your first customer purchase."}
+            Click below to log your first customer purchase.
           </p>
           <button
             onClick={openCreateModal}
@@ -239,13 +613,37 @@ export default function SalesPage() {
             Record Sale
           </button>
         </div>
+      ) : filteredSales.length === 0 ? (
+        <div className="card border-dashed text-center py-16">
+          <Filter className="w-6 h-6 text-faint mx-auto mb-3" />
+          <h3 className="text-h3">No Matching Sales Found</h3>
+          <p className="text-body text-sm max-w-sm mx-auto mt-1">
+            No sales orders match your active search and filter criteria. Try adjusting your parameters.
+          </p>
+          <button
+            onClick={resetAllFilters}
+            className="btn btn-sm btn-secondary mt-4"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Clear All Filters
+          </button>
+        </div>
       ) : (
         <div className="card p-0 overflow-hidden">
-          <div className="px-6 pt-6 pb-5">
-            <h2 className="text-h3">Sales Orders</h2>
-            <p className="text-xs text-mute mt-1">
-              Every recorded customer order
-            </p>
+          <div className="px-6 pt-6 pb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <h2 className="text-h3">Sales Orders</h2>
+              <p className="text-xs text-mute mt-1">
+                {hasActiveFilters
+                  ? `Showing ${filteredSales.length} of ${sales.length} orders matching filters`
+                  : `Every recorded customer order (${sales.length} total)`}
+              </p>
+            </div>
+            {hasActiveFilters && (
+              <span className="text-xs text-mute">
+                Filtered Revenue: <strong className="text-ink font-semibold tabular-nums">{formatPKR(totalFilteredAmount)}</strong>
+              </span>
+            )}
           </div>
 
           <div className="overflow-x-auto border-t border-hairline">
@@ -264,7 +662,7 @@ export default function SalesPage() {
                 </tr>
               </thead>
               <tbody>
-                {sales.map((sale) => (
+                {filteredSales.map((sale) => (
                   <tr key={sale.id}>
                     <td className="font-medium">
                       {sale.customer_name}
