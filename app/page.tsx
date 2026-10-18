@@ -273,9 +273,23 @@ export default async function DashboardPage() {
                   <tr key={sale.id}>
                     <td className="font-medium">{sale.customer_name}</td>
                     <td className="text-body">
-                      {sale.product?.name || "Product"}
+                      {sale.items && sale.items.length > 0 ? (
+                        <div className="space-y-0.5">
+                          {sale.items.map((item: any, idx: number) => (
+                            <span key={item.id || idx} className="block text-xs">
+                              {item.quantity}x {item.product?.name || "Product"}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        sale.product?.name || "Product"
+                      )}
                     </td>
-                    <td className="tabular-nums">{sale.quantity}</td>
+                    <td className="tabular-nums">
+                      {sale.items && sale.items.length > 0
+                        ? sale.items.reduce((acc: number, item: any) => acc + (item.quantity || 0), 0)
+                        : sale.quantity}
+                    </td>
                     <td className="font-medium tabular-nums">
                       {formatPKR(sale.total_price)}
                     </td>

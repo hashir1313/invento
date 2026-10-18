@@ -720,6 +720,12 @@ export async function getLedger(filters?: {
               customer_name: true,
               total_price: true,
               product: { select: { name: true } },
+              items: {
+                select: {
+                  quantity: true,
+                  product: { select: { name: true } },
+                },
+              },
             },
           },
           restock: {

@@ -213,9 +213,13 @@ export function LedgerTable({ refreshToken }: LedgerTableProps) {
                     {entry.sale ? (
                       <div>
                         <span className="font-medium text-ink">Sale: {entry.sale.customer_name}</span>
-                        {entry.sale.product && (
+                        {entry.sale.items && entry.sale.items.length > 0 ? (
+                          <span className="text-mute block text-[11px]">
+                            {entry.sale.items.map((i: any) => `${i.quantity}x ${i.product?.name || "perfume"}`).join(", ")}
+                          </span>
+                        ) : entry.sale.product ? (
                           <span className="text-mute block text-[11px]">{entry.sale.product.name}</span>
-                        )}
+                        ) : null}
                       </div>
                     ) : entry.restock ? (
                       <div>

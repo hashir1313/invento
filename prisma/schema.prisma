@@ -57,6 +57,7 @@ model Product {
   updated_at          DateTime @updatedAt
 
   sales               Sale[]
+  sale_items          SaleItem[]
   batch_productions   BatchProduction[]
   recipe_items        BatchRecipeItem[]
   maceration_batches  MacerationBatch[]
@@ -69,9 +70,6 @@ model Sale {
   customer_name  String
   date_purchased DateTime      @default(now())
   paid_at        DateTime?
-  product_id     String
-  quantity       Int           @default(1)
-  unit_price     Float
   total_price    Float
   payment_status PaymentStatus @default(PENDING)
   payment_option PaymentOption @default(CASH)
@@ -80,7 +78,13 @@ model Sale {
 
   created_at     DateTime      @default(now())
 
-  product        Product       @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  // Legacy single-item fields kept optional for backward compatibility
+  product_id     String?
+  quantity       Int?          @default(1)
+  unit_price     Float?
+
+  product        Product?      @relation(fields: [product_id], references: [id], onDelete: SetNull)
+  items          SaleItem[]
   txn_entries    TxnEntry[]
 
   @@index([payment_status])
@@ -88,6 +92,22 @@ model Sale {
   @@index([date_purchased])
   @@index([paid_at])
   @@map("sales")
+}
+
+model SaleItem {
+  id          String   @id @default(uuid())
+  sale_id     String
+  product_id  String
+  quantity    Int      @default(1)
+  unit_price  Float
+  total_price Float
+
+  sale        Sale     @relation(fields: [sale_id], references: [id], onDelete: Cascade)
+  product     Product  @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@index([sale_id])
+  @@index([product_id])
+  @@map("sale_items")
 }
 
 model RawMaterial {

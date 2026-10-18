@@ -138,6 +138,12 @@ export async function deleteProduct(id: string) {
 // SALES ACTIONS
 // ==========================================
 
+export type SaleItemInput = {
+  product_id: string;
+  quantity: number;
+  unit_price: number;
+};
+
 export async function getSales(filterStatus?: string, filterOption?: string) {
   try {
     const where: any = {};
@@ -152,6 +158,11 @@ export async function getSales(filterStatus?: string, filterOption?: string) {
       where,
       include: {
         product: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
       },
       orderBy: { date_purchased: "desc" },
     });
@@ -164,66 +175,117 @@ export async function getSales(filterStatus?: string, filterOption?: string) {
 export async function createSale(data: {
   customer_name: string;
   date_purchased?: string;
-  product_id: string;
-  quantity: number;
-  unit_price: number;
+  items?: SaleItemInput[];
+  product_id?: string;
+  quantity?: number;
+  unit_price?: number;
   payment_status: PaymentStatus;
   payment_option: PaymentOption;
   review_given: boolean;
   notes?: string;
 }) {
   try {
-    const qty = Number(data.quantity);
-    const unitPrice = Number(data.unit_price);
-    const totalPrice = qty * unitPrice;
+    const rawItems: SaleItemInput[] =
+      data.items && data.items.length > 0
+        ? data.items
+        : data.product_id
+        ? [
+            {
+              product_id: data.product_id,
+              quantity: Number(data.quantity || 1),
+              unit_price: Number(data.unit_price || 0),
+            },
+          ]
+        : [];
 
-    // Execute in Prisma Transaction for stock safety
+    if (rawItems.length === 0) {
+      throw new Error("Please add at least one perfume to the sale.");
+    }
+
+    // Consolidate required quantity per product_id to validate and decrement stock
+    const productQuantities: Record<string, number> = {};
+    for (const item of rawItems) {
+      if (!item.product_id) throw new Error("A perfume item is missing product selection.");
+      const qty = Math.max(1, Math.floor(Number(item.quantity) || 1));
+      productQuantities[item.product_id] = (productQuantities[item.product_id] || 0) + qty;
+    }
+
     const result = await prisma.$transaction(async (tx) => {
-      const product = await tx.product.findUnique({
-        where: { id: data.product_id },
+      const productIds = Object.keys(productQuantities);
+      const dbProducts = await tx.product.findMany({
+        where: { id: { in: productIds } },
       });
+      const productMap = new Map(dbProducts.map((p) => [p.id, p]));
 
-      if (!product) {
-        throw new Error("Selected product not found");
-      }
-
-      if (product.stock < qty) {
-        throw new Error(
-          `Insufficient stock! Available: ${product.stock} bottle(s), Requested: ${qty}`
-        );
+      // Validate existence and stock
+      for (const [pid, neededQty] of Object.entries(productQuantities)) {
+        const prod = productMap.get(pid);
+        if (!prod) {
+          throw new Error("One or more selected products not found.");
+        }
+        if (prod.stock < neededQty) {
+          throw new Error(
+            `Insufficient stock for "${prod.name}"! Available: ${prod.stock} bottle(s), Requested: ${neededQty}`
+          );
+        }
       }
 
       // Decrement stock
-      await tx.product.update({
-        where: { id: data.product_id },
-        data: { stock: product.stock - qty },
+      for (const [pid, neededQty] of Object.entries(productQuantities)) {
+        await tx.product.update({
+          where: { id: pid },
+          data: { stock: { decrement: neededQty } },
+        });
+      }
+
+      // Calculate line items and total price
+      let totalPrice = 0;
+      const saleItemsData = rawItems.map((item) => {
+        const qty = Math.max(1, Math.floor(Number(item.quantity) || 1));
+        const unitPrice = Math.max(0, Number(item.unit_price) || 0);
+        const lineTotal = qty * unitPrice;
+        totalPrice += lineTotal;
+        return {
+          product_id: item.product_id,
+          quantity: qty,
+          unit_price: unitPrice,
+          total_price: lineTotal,
+        };
       });
 
-      // Determine if paid
       const isPaid = data.payment_status === PaymentStatus.PAYED;
       const datePurchased = data.date_purchased ? new Date(data.date_purchased) : new Date();
       const paidAt = isPaid ? datePurchased : null;
+      const firstItem = saleItemsData[0];
 
-      // Create Sale record
       const sale = await tx.sale.create({
         data: {
-          customer_name: data.customer_name,
+          customer_name: data.customer_name.trim(),
           date_purchased: datePurchased,
           paid_at: paidAt,
-          product_id: data.product_id,
-          quantity: qty,
-          unit_price: unitPrice,
           total_price: totalPrice,
           payment_status: data.payment_status,
           payment_option: data.payment_option,
           review_given: Boolean(data.review_given),
           notes: data.notes || null,
+          product_id: firstItem?.product_id || null,
+          quantity: firstItem?.quantity || 1,
+          unit_price: firstItem?.unit_price || 0,
+          items: {
+            create: saleItemsData,
+          },
+        },
+        include: {
+          items: { include: { product: true } },
         },
       });
 
       // If created as PAYED, record REVENUE in banking ledger
       if (isPaid) {
         const { business } = await getOrCreateDefaultAccounts(tx);
+        const itemsSummary = sale.items
+          .map((i) => `${i.quantity}x ${i.product?.name || "perfume"}`)
+          .join(", ");
         await tx.txnEntry.create({
           data: {
             type: TxnType.REVENUE,
@@ -232,7 +294,7 @@ export async function createSale(data: {
             to_id: business.id,
             sale_id: sale.id,
             occurred_at: paidAt!,
-            notes: `Sale of ${qty}x ${product.name} to ${data.customer_name}`,
+            notes: `Sale of ${itemsSummary} to ${data.customer_name.trim()}`,
           },
         });
       }
@@ -256,12 +318,16 @@ export async function updateSalePaymentStatus(id: string, newStatus: PaymentStat
     const result = await prisma.$transaction(async (tx) => {
       const existing = await tx.sale.findUnique({
         where: { id },
-        include: { product: true },
+        include: { product: true, items: { include: { product: true } } },
       });
       if (!existing) throw new Error("Sale not found");
       if (existing.payment_status === newStatus) return existing;
 
       const { business } = await getOrCreateDefaultAccounts(tx);
+      const itemsSummary =
+        existing.items && existing.items.length > 0
+          ? existing.items.map((i) => `${i.quantity}x ${i.product?.name || "perfume"}`).join(", ")
+          : `${existing.quantity}x ${existing.product?.name || "perfume"}`;
 
       if (newStatus === PaymentStatus.PAYED) {
         const paidAt = new Date();
@@ -280,11 +346,12 @@ export async function updateSalePaymentStatus(id: string, newStatus: PaymentStat
             to_id: business.id,
             sale_id: id,
             occurred_at: paidAt,
-            notes: `Sale of ${existing.quantity}x ${existing.product?.name || "perfume"} to ${existing.customer_name}`,
+            notes: `Sale of ${itemsSummary} to ${existing.customer_name}`,
           },
           update: {
             amount: new Prisma.Decimal(existing.total_price.toFixed(2)),
             occurred_at: paidAt,
+            notes: `Sale of ${itemsSummary} to ${existing.customer_name}`,
           },
         });
 
@@ -313,6 +380,7 @@ export async function updateSalePaymentStatus(id: string, newStatus: PaymentStat
           update: {
             amount: new Prisma.Decimal(existing.total_price.toFixed(2)),
             occurred_at: new Date(),
+            notes: `Refund for sale to ${existing.customer_name}`,
           },
         });
       } else if (newStatus === PaymentStatus.PENDING) {
@@ -326,7 +394,10 @@ export async function updateSalePaymentStatus(id: string, newStatus: PaymentStat
         });
       }
 
-      return await tx.sale.findUnique({ where: { id } });
+      return await tx.sale.findUnique({
+        where: { id },
+        include: { product: true, items: { include: { product: true } } },
+      });
     });
 
     safeRevalidate("/sales");
@@ -357,9 +428,10 @@ export async function updateSale(
   data: {
     customer_name: string;
     date_purchased?: string;
-    product_id: string;
-    quantity: number;
-    unit_price: number;
+    items?: SaleItemInput[];
+    product_id?: string;
+    quantity?: number;
+    unit_price?: number;
     payment_status: PaymentStatus;
     payment_option: PaymentOption;
     review_given: boolean;
@@ -367,52 +439,101 @@ export async function updateSale(
   }
 ) {
   try {
-    const qty = Number(data.quantity);
-    const unitPrice = Number(data.unit_price);
-    const totalPrice = qty * unitPrice;
+    const rawItems: SaleItemInput[] =
+      data.items && data.items.length > 0
+        ? data.items
+        : data.product_id
+        ? [
+            {
+              product_id: data.product_id,
+              quantity: Number(data.quantity || 1),
+              unit_price: Number(data.unit_price || 0),
+            },
+          ]
+        : [];
+
+    if (rawItems.length === 0) {
+      throw new Error("Please add at least one perfume to the sale.");
+    }
 
     const result = await prisma.$transaction(async (tx) => {
-      const existingSale = await tx.sale.findUnique({ where: { id } });
+      const existingSale = await tx.sale.findUnique({
+        where: { id },
+        include: { items: true },
+      });
       if (!existingSale) throw new Error("Sale not found");
 
-      const newProduct = await tx.product.findUnique({ where: { id: data.product_id } });
-      if (!newProduct) throw new Error("Selected product not found");
-
-      const oldProductId = existingSale.product_id;
-      const oldQty = existingSale.quantity;
-
-      if (oldProductId === data.product_id) {
-        const stockDiff = qty - oldQty;
-        if (stockDiff > 0 && newProduct.stock < stockDiff) {
-          throw new Error(
-            `Insufficient stock! Need ${stockDiff} more bottle(s), but only ${newProduct.stock} available.`
-          );
-        }
-        await tx.product.update({
-          where: { id: data.product_id },
-          data: { stock: newProduct.stock - stockDiff },
-        });
-      } else {
-        const oldProduct = await tx.product.findUnique({ where: { id: oldProductId } });
-        if (oldProduct) {
+      // 1. Restore previous stock
+      if (existingSale.items && existingSale.items.length > 0) {
+        for (const item of existingSale.items) {
           await tx.product.update({
-            where: { id: oldProductId },
-            data: { stock: oldProduct.stock + oldQty },
+            where: { id: item.product_id },
+            data: { stock: { increment: item.quantity } },
           });
         }
-
-        if (newProduct.stock < qty) {
-          throw new Error(
-            `Insufficient stock for ${newProduct.name}! Available: ${newProduct.stock} bottle(s), Requested: ${qty}`
-          );
-        }
+      } else if (existingSale.product_id && existingSale.quantity) {
         await tx.product.update({
-          where: { id: data.product_id },
-          data: { stock: newProduct.stock - qty },
+          where: { id: existingSale.product_id },
+          data: { stock: { increment: existingSale.quantity } },
         });
       }
 
-      // Determine paid_at
+      // 2. Consolidate new required quantity per product_id
+      const productQuantities: Record<string, number> = {};
+      for (const item of rawItems) {
+        if (!item.product_id) throw new Error("A perfume item is missing product selection.");
+        const qty = Math.max(1, Math.floor(Number(item.quantity) || 1));
+        productQuantities[item.product_id] = (productQuantities[item.product_id] || 0) + qty;
+      }
+
+      // 3. Verify stock availability (with restored stock taken into account)
+      const productIds = Object.keys(productQuantities);
+      const dbProducts = await tx.product.findMany({
+        where: { id: { in: productIds } },
+      });
+      const productMap = new Map(dbProducts.map((p) => [p.id, p]));
+
+      for (const [pid, neededQty] of Object.entries(productQuantities)) {
+        const prod = productMap.get(pid);
+        if (!prod) {
+          throw new Error("One or more selected products not found.");
+        }
+        if (prod.stock < neededQty) {
+          throw new Error(
+            `Insufficient stock for "${prod.name}"! Available: ${prod.stock} bottle(s), Requested: ${neededQty}`
+          );
+        }
+      }
+
+      // 4. Decrement stock for new items
+      for (const [pid, neededQty] of Object.entries(productQuantities)) {
+        await tx.product.update({
+          where: { id: pid },
+          data: { stock: { decrement: neededQty } },
+        });
+      }
+
+      // 5. Calculate new line items and total price
+      let totalPrice = 0;
+      const saleItemsData = rawItems.map((item) => {
+        const qty = Math.max(1, Math.floor(Number(item.quantity) || 1));
+        const unitPrice = Math.max(0, Number(item.unit_price) || 0);
+        const lineTotal = qty * unitPrice;
+        totalPrice += lineTotal;
+        return {
+          sale_id: id,
+          product_id: item.product_id,
+          quantity: qty,
+          unit_price: unitPrice,
+          total_price: lineTotal,
+        };
+      });
+
+      // 6. Replace old SaleItems with new ones
+      await tx.saleItem.deleteMany({ where: { sale_id: id } });
+      await tx.saleItem.createMany({ data: saleItemsData });
+
+      // 7. Update Sale record
       let paidAt = existingSale.paid_at;
       if (data.payment_status === PaymentStatus.PAYED && !paidAt) {
         paidAt = data.date_purchased ? new Date(data.date_purchased) : new Date();
@@ -420,25 +541,33 @@ export async function updateSale(
         paidAt = null;
       }
 
+      const firstItem = saleItemsData[0];
       const sale = await tx.sale.update({
         where: { id },
         data: {
-          customer_name: data.customer_name,
+          customer_name: data.customer_name.trim(),
           date_purchased: data.date_purchased ? new Date(data.date_purchased) : existingSale.date_purchased,
           paid_at: paidAt,
-          product_id: data.product_id,
-          quantity: qty,
-          unit_price: unitPrice,
           total_price: totalPrice,
           payment_status: data.payment_status,
           payment_option: data.payment_option,
           review_given: Boolean(data.review_given),
           notes: data.notes || null,
+          product_id: firstItem?.product_id || null,
+          quantity: firstItem?.quantity || 1,
+          unit_price: firstItem?.unit_price || 0,
+        },
+        include: {
+          items: { include: { product: true } },
         },
       });
 
-      // Synchronize ledger entry
+      // 8. Synchronize ledger entry
       const { business } = await getOrCreateDefaultAccounts(tx);
+      const itemsSummary = sale.items
+        .map((i) => `${i.quantity}x ${i.product?.name || "perfume"}`)
+        .join(", ");
+
       if (data.payment_status === PaymentStatus.PAYED) {
         await tx.txnEntry.upsert({
           where: { sale_id_type: { sale_id: id, type: TxnType.REVENUE } },
@@ -449,11 +578,12 @@ export async function updateSale(
             to_id: business.id,
             sale_id: id,
             occurred_at: paidAt || new Date(),
-            notes: `Sale of ${qty}x ${newProduct.name} to ${data.customer_name}`,
+            notes: `Sale of ${itemsSummary} to ${data.customer_name.trim()}`,
           },
           update: {
             amount: new Prisma.Decimal(totalPrice.toFixed(2)),
             occurred_at: paidAt || new Date(),
+            notes: `Sale of ${itemsSummary} to ${data.customer_name.trim()}`,
           },
         });
         await tx.txnEntry.deleteMany({
@@ -469,11 +599,12 @@ export async function updateSale(
             to_id: null,
             sale_id: id,
             occurred_at: new Date(),
-            notes: `Refund for sale to ${data.customer_name}`,
+            notes: `Refund for sale to ${data.customer_name.trim()}`,
           },
           update: {
             amount: new Prisma.Decimal(totalPrice.toFixed(2)),
             occurred_at: new Date(),
+            notes: `Refund for sale to ${data.customer_name.trim()}`,
           },
         });
       } else if (data.payment_status === PaymentStatus.PENDING) {
@@ -493,6 +624,52 @@ export async function updateSale(
   } catch (error: any) {
     console.error("Error updating sale:", error);
     return { success: false, error: error?.message || "Failed to update sale" };
+  }
+}
+
+export async function deleteSale(id: string) {
+  try {
+    await prisma.$transaction(async (tx) => {
+      const existing = await tx.sale.findUnique({
+        where: { id },
+        include: { items: true },
+      });
+      if (!existing) throw new Error("Sale not found");
+
+      // Restore stock
+      if (existing.items && existing.items.length > 0) {
+        for (const item of existing.items) {
+          await tx.product.update({
+            where: { id: item.product_id },
+            data: { stock: { increment: item.quantity } },
+          });
+        }
+      } else if (existing.product_id && existing.quantity) {
+        await tx.product.update({
+          where: { id: existing.product_id },
+          data: { stock: { increment: existing.quantity } },
+        });
+      }
+
+      // Delete associated ledger entries
+      await tx.txnEntry.deleteMany({
+        where: { sale_id: id },
+      });
+
+      // Delete sale (items cascade)
+      await tx.sale.delete({
+        where: { id },
+      });
+    });
+
+    safeRevalidate("/sales");
+    safeRevalidate("/products");
+    safeRevalidate("/finances");
+    safeRevalidate("/");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error deleting sale:", error);
+    return { success: false, error: error?.message || "Failed to delete sale" };
   }
 }
 
@@ -913,7 +1090,17 @@ export async function produceBatchV2(data: {
 export async function getDashboardMetrics() {
   try {
     const [sales, products, rawMaterials, completedMacerations] = await Promise.all([
-      prisma.sale.findMany({ include: { product: true }, orderBy: { date_purchased: "desc" } }),
+      prisma.sale.findMany({
+        include: {
+          product: true,
+          items: {
+            include: {
+              product: true,
+            },
+          },
+        },
+        orderBy: { date_purchased: "desc" },
+      }),
       prisma.product.findMany(),
       prisma.rawMaterial.findMany(),
       prisma.macerationBatch.findMany({
@@ -1004,7 +1191,14 @@ export async function getDashboardMetrics() {
 export async function getFinancesMetrics() {
   try {
     const sales = await prisma.sale.findMany({
-      include: { product: true },
+      include: {
+        product: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
       orderBy: { date_purchased: "desc" },
     });
 
@@ -1015,7 +1209,15 @@ export async function getFinancesMetrics() {
     for (const sale of sales) {
       if (sale.payment_status === "PAYED") {
         const revenue = sale.total_price;
-        const makingCost = sale.quantity * (sale.product?.making_cost || 0);
+        let makingCost = 0;
+        if (sale.items && sale.items.length > 0) {
+          makingCost = sale.items.reduce(
+            (acc, it) => acc + it.quantity * (it.product?.making_cost || 0),
+            0
+          );
+        } else {
+          makingCost = (sale.quantity || 1) * (sale.product?.making_cost || 0);
+        }
         const netProfit = revenue - makingCost;
 
         totalRevenue += revenue;
