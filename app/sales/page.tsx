@@ -1136,9 +1136,9 @@ export default function SalesPage() {
                             )}
                           </div>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                          <div className="space-y-3">
                             {/* Perfume Selector */}
-                            <div className="sm:col-span-5">
+                            <div>
                               <label className="text-[11px] text-mute mb-1 block">
                                 Perfume *
                               </label>
@@ -1160,38 +1160,41 @@ export default function SalesPage() {
                               )}
                             </div>
 
-                            {/* Quantity */}
-                            <div className="sm:col-span-2">
-                              <label className="text-[11px] text-mute mb-1 block">
-                                Qty *
-                              </label>
-                              <input
-                                type="number"
-                                min="1"
-                                required
-                                value={item.quantity}
-                                onChange={(e) => handleItemQuantityChange(index, Number(e.target.value))}
-                                className="input text-xs tabular-nums text-center"
-                              />
+                            {/* Quantity and Unit Price in Same Row */}
+                            <div className="grid grid-cols-2 gap-3">
+                              {/* Quantity */}
+                              <div>
+                                <label className="text-[11px] text-mute mb-1 block">
+                                  Qty *
+                                </label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  required
+                                  value={item.quantity}
+                                  onChange={(e) => handleItemQuantityChange(index, Number(e.target.value))}
+                                  className="input text-xs tabular-nums text-right pr-2"
+                                />
+                              </div>
+
+                              {/* Unit Price */}
+                              <div>
+                                <label className="text-[11px] text-mute mb-1 block">
+                                  Unit Price (PKR) *
+                                </label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  required
+                                  value={item.unitPrice}
+                                  onChange={(e) => handleItemUnitPriceChange(index, Number(e.target.value))}
+                                  className="input text-xs tabular-nums text-right pr-2"
+                                />
+                              </div>
                             </div>
 
-                            {/* Unit Price */}
-                            <div className="sm:col-span-2">
-                              <label className="text-[11px] text-mute mb-1 block">
-                                Unit Price *
-                              </label>
-                              <input
-                                type="number"
-                                min="0"
-                                required
-                                value={item.unitPrice}
-                                onChange={(e) => handleItemUnitPriceChange(index, Number(e.target.value))}
-                                className="input text-xs tabular-nums"
-                              />
-                            </div>
-
-                            {/* Line Total */}
-                            <div className="sm:col-span-3">
+                            {/* Line Total / Subtotal */}
+                            <div>
                               <label className="text-[11px] text-mute mb-1 block">
                                 Subtotal
                               </label>
