@@ -9,7 +9,8 @@
     "lint": "eslint",
     "postinstall": "prisma generate",
     "seed": "prisma db seed",
-    "create-user": "bun scripts/create-user.ts"
+    "create-user": "bun scripts/create-user.ts",
+    "migrate-sales": "bun scripts/migrate-sales.ts"
   },
   "prisma": {
     "seed": "bun prisma/seed.ts"
