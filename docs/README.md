@@ -5,9 +5,8 @@ Index of all project documentation. Keep these in sync with the code when featur
 | Document | Description |
 |----------|-------------|
 | [PRD.md](./PRD.md) | Product Requirements Document — personas, the 8 feature modules, non-functional requirements, and implementation status. |
-| [architecture.md](./architecture.md) | System architecture — tech stack, request/data flows (sales, restock, production, maceration, auth), server action surface, directory layout, and cross-cutting concerns (security, consistency, deployment). |
+| [architecture.md](./architecture.md) | System architecture — tech stack, request/data flows (sales, restock, production, maceration, auth), server action surface, directory layout, cross-cutting concerns, and manual regression checklist. |
 | [database.md](./database.md) | Database schema — ERD, enum definitions, model overview with relationships/constraints, full Prisma schema, and seed data. |
-| [plan.md](./plan.md) | Implementation plan — development phases with status, per-phase testing strategy, and the manual regression checklist used as a release gate. |
 | [finance-system.md](./finance-system.md) | Finance & banking system — cash-basis profit formula, double-entry ledger with company/partner accounts, data model, partner drawings, debt/loans, and dynamic share percentages. |
 
 Related documents in the repository root:

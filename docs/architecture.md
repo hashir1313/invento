@@ -264,7 +264,7 @@ invento/
 ├── scripts/
 │   ├── create-user.ts                 # Generates AUTH_USERNAME / AUTH_PASSWORD_HASH
 │   └── migrate-sales.ts               # Backfills legacy sales into multi-item sale_items
-├── docs/                              # PRD, plan, database, architecture, finance-system
+├── docs/                              # PRD, database, architecture, finance-system
 ├── public/                            # Favicon set, web manifest, static assets
 ├── proxy.ts                           # Route guard (Next.js 16 middleware replacement)
 ├── DESIGN.md                          # Geist design system reference
@@ -293,3 +293,18 @@ invento/
 ### Deployment
 - Target: Vercel Hobby tier with Neon Postgres.
 - Required env vars: `DATABASE_URL`, `AUTH_USERNAME`, `AUTH_PASSWORD_HASH`, `AUTH_SECRET` (plus optional `BLOB_READ_WRITE_TOKEN` for future blob storage).
+
+---
+
+## 6. Release Verification (Manual Regression Checklist)
+
+Before releasing or deploying new changes, run through this smoke-test checklist:
+
+1. **Authentication**: Test login, logout, and verify that navigating to protected routes while unauthenticated redirects to `/login`.
+2. **Products Catalog**: Test product creation, editing, deletion, image compression (< 100 KB WebP), and quick stock steppers (+/-).
+3. **Sales Register**: Create and edit multi-item sales; verify customer search bar, filter modal, inline payment status updates, review toggle, and atomic stock deductions.
+4. **Raw Materials**: Create/edit raw materials, test "Got Supply" restock intake, verify stock increments, cost per unit refresh, and auto-posted inventory expenses.
+5. **Batch Production**: Test V2 bottle and mass production modes with concentration auto-calculation and live insufficient-stock validation; test with and without maceration.
+6. **Maceration**: Create maceration batch, test extending completion dates, and release completed batch to stock via "Add to Stock".
+7. **Finances & Ledger**: Reconcile dashboard and finances: verify cash-basis net profit, business cash balance, partner available balances, expense quick-add, loans, and withdrawal guards.
+8. **UI & Viewports**: Verify light/dark theme toggle persistence (no flash on reload), and test mobile bottom navigation bar and "More" drawer menu on small screens.

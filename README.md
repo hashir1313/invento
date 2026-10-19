@@ -154,7 +154,7 @@ scripts/
 ├── create-user.ts           # Auth credential generator
 └── migrate-sales.ts         # Multi-item sales backfill migration script
 proxy.ts                     # Route guard (Next.js 16 middleware replacement)
-docs/                        # PRD, plan, database, architecture, finance-system docs
+docs/                        # PRD, database, architecture, finance-system docs
 ```
 
 ## Documentation
@@ -162,10 +162,9 @@ docs/                        # PRD, plan, database, architecture, finance-system
 | Document | Description |
 |----------|-------------|
 | [`docs/PRD.md`](./docs/PRD.md) | Product requirements — modules, features, non-functional requirements |
-| [`docs/architecture.md`](./docs/architecture.md) | System architecture, data flows, and directory layout |
+| [`docs/architecture.md`](./docs/architecture.md) | System architecture, data flows, cross-cutting concerns, and regression checklist |
 | [`docs/database.md`](./docs/database.md) | Database schema, enums, models, and ERD |
 | [`docs/finance-system.md`](./docs/finance-system.md) | Cash-basis finance system, double-entry banking ledger, partner shares, and loans |
-| [`docs/plan.md`](./docs/plan.md) | Implementation phases, milestones, and testing strategy |
 | [`DESIGN.md`](./DESIGN.md) | Geist design system reference (colors, type, components) |
 
 ## License
