@@ -8,7 +8,7 @@ Index of all project documentation. Keep these in sync with the code when featur
 | [architecture.md](./architecture.md) | System architecture — tech stack, request/data flows (sales, restock, production, maceration, auth), server action surface, directory layout, and cross-cutting concerns (security, consistency, deployment). |
 | [database.md](./database.md) | Database schema — ERD, enum definitions, model overview with relationships/constraints, full Prisma schema, and seed data. |
 | [plan.md](./plan.md) | Implementation plan — development phases with status, per-phase testing strategy, and the manual regression checklist used as a release gate. |
-| [finance-system.md](./finance-system.md) | Finance & banking system — cash-basis profit formula, double-entry ledger with company/partner accounts, data model, worked examples, and partner drawings. |
+| [finance-system.md](./finance-system.md) | Finance & banking system — cash-basis profit formula, double-entry ledger with company/partner accounts, data model, partner drawings, debt/loans, and dynamic share percentages. |
 
 Related documents in the repository root:
 

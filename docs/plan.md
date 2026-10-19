@@ -85,26 +85,37 @@ gantt
   - Unauthenticated request to any protected route redirects to `/login?redirect=…`.
   - Logout clears the cookie and blocks subsequent access.
 
-### Phase 7: Maceration, Finances & Design System ✅
+### Phase 7: Maceration, Banking Ledger Finances, Multi-Item Sales & UI Enhancements ✅
 - **Tasks**:
   1. **Maceration (`/maceration`)**: create batches with date ranges, active list with days-remaining/READY badges, add-to-stock and extend actions, completed history; dashboard alert cards.
-  2. **Finances (`/finances`)**: revenue / making cost / net profit from paid sales; 65/35 partner split cards and bar.
-  3. **Design**: Geist token system in `app/globals.css`, dark mode with pre-paint bootstrap and `ThemeToggle`, favicon/manifest set, `CalendarDatePicker` component.
+  2. **Multi-Item Sales & Filters (`/sales`)**: multi-product selection per order modal (`SaleItem`), customer name search in table header, two-line filter modal (perfume, price range, date presets, custom date range, status/payment options), and backfill migration script (`bun run migrate-sales`).
+  3. **Double-Entry Banking & Finances (`/finances`, `app/bank-actions.ts`)**:
+     - Cash-basis profit formula: $\text{Revenue} - \text{Expenses}$.
+     - `Account` and `TxnEntry` double-entry ledger.
+     - Auto-booking hooks: paid sales post `REVENUE`, refunds post `REFUND`, material restocks post `EXPENSE (INVENTORY)`.
+     - Capital contributions and quick operating/equipment expenses.
+     - Debt and loan financing (disbursement and principal repayment).
+     - Guarded partner withdrawals (earned available share limit; blocked during loss periods).
+     - Configurable partner equity/share percentages (`PartnerShareModal`).
+     - Period view: monthly navigation and All-Time reporting view toggle.
+     - Complete filterable, paginated transaction ledger table (`LedgerTable`).
+  4. **Design & Mobile Navigation**: Geist token system in `app/globals.css`, dark mode with pre-paint bootstrap and `ThemeToggle`, mobile bottom bar with primary shortcuts and "More" drawer overlay.
 - **Testing Plan**:
   - **Maceration lifecycle**: create → wait/expire → READY badge → Add to Stock increments product stock exactly once; Extend pushes the end date.
-  - **Finances**: with known `making_cost` values, verify revenue − making cost = net profit and the 65/35 split.
-  - **Theme**: no light-flash on reload in dark mode; preference persists across sessions.
+  - **Multi-Item Sales**: single order with 2x Velvet Oud and 1x Santal Dream atomically deducts stock across both products; edit re-balances accurately.
+  - **Ledger Invariants**: assert master identity `Business Cash = Capital Contributions + All-Time Profit − Withdrawals`; verify withdrawals are blocked if requested amount exceeds partner available share or when period is in loss.
+  - **Theme & Navigation**: mobile bottom navigation items and More overlay toggle smoothly on smartphone viewports; dark mode preference persists.
 
 ### Phase 8: Testing Automation & Deployment Verification ⏳
 - **Tasks**:
-  1. Add an automated test setup (e.g. Vitest + Playwright) covering the transactional server actions (sale stock guard, restock, V2 production, maceration release).
+  1. Add an automated test setup (e.g. Vitest + Playwright) covering the transactional server actions (sale stock guard, restock, V2 production, maceration release, ledger postings).
   2. Run `bun run build` — zero TypeScript, App Router, or prerender errors.
   3. Document Vercel deployment steps for `DATABASE_URL`, auth env vars, and (optionally) `BLOB_READ_WRITE_TOKEN`.
   4. Consider migrating product images from data URLs to Vercel Blob storage.
 - **Testing Plan**:
   - **Build Integrity**: `bun run build` exits 0 locally.
   - **Environment Variable Test**: server actions fail gracefully with clear guidance when env vars are missing.
-  - **Deployment Smoke Test**: login → record sale → produce batch → release maceration on the live URL.
+  - **Deployment Smoke Test**: login → record sale → produce batch → release maceration → verify ledger entry on live URL.
 
 ---
 
@@ -112,9 +123,9 @@ gantt
 
 1. Login / logout / blocked-route redirect.
 2. Product create/edit/delete + image compression + stock steppers.
-3. Sale create/edit with stock guards, filters, status & review toggles.
-4. Raw material create/edit/delete + restock intake + low-stock badges.
+3. Multi-item sale create/edit with stock guards, customer search, filter modal, inline status, and review toggles.
+4. Raw material create/edit/delete + restock intake (auto-records inventory expense) + low-stock badges.
 5. V1 recipe save/produce; V2 bottle & mass modes with and without maceration.
 6. Maceration create → release / extend; dashboard alerts.
-7. Dashboard & finances figures reconcile with seeded/test data.
-8. Dark mode + mobile bottom navigation on a phone viewport.
+7. Finances & banking ledger reconcile: revenue, expenses, business cash balance, partner shares, capital injection, expense intake, and withdrawal guards.
+8. Dark mode + mobile bottom navigation bar and "More" drawer menu on a phone viewport.

@@ -36,19 +36,26 @@ The system is strictly designed for **internal use by the business owner(s)** to
 - **Product Images**: Upload product photos auto-compressed client-side into `.webp` format (< 100 KB, max 800×800) and stored on the product record.
 
 ### Module 2: Customer Sales & Orders Register
-- **Order Recording**: Quickly enter customer purchases; sales are fully editable after creation.
+- **Order Recording**: Quickly enter customer purchases with multi-item perfume order support in a single order modal; sales are fully editable after creation.
 - **Sales Data Fields**:
   - Customer Name (Text)
-  - Date Purchased (Date picker, default: current timestamp)
-  - Product Purchased (Relation to Finished Product; unit price auto-fills from the product)
-  - Quantity Purchased (Integer count of bottles)
-  - Unit Price & Total Price (Auto-calculated)
-  - **Payment Status**: `PENDING`, `PAYED`, `REFUNDED` (inline dropdown/badges — updatable directly from the table)
+  - Date Purchased (Date input, default: today)
+  - Paid At (`paid_at` timestamp, recorded when payment transitions to `PAYED`)
+  - **Order Items** (`SaleItem`): Multi-product list per sale with Product selection, Quantity (integer bottles), Unit Price (auto-filled from product, customizable), and Line Total.
+  - Total Price (Auto-summed from all line items)
+  - **Payment Status**: `PENDING`, `PAYED`, `REFUNDED` (inline dropdown/badges — updatable directly from the table, hooked transactionally into the banking ledger)
   - **Payment Options**: `CASH`, `EASYPAISA`, `JAZZCASH`, `BANK_TRANSFER` (Dropdown/Badges)
   - **Review Given**: Boolean toggle (`true`/`false`) for customer review follow-up
   - Notes (Text, optional address/contact/shipping details)
-- **Filtering**: Filter the sales table by Payment Status and Payment Option.
-- **Automated Stock Deduction**: Recording a sale decrements the product's available `stock` in a transaction, with an insufficient-stock guard. Editing a sale re-balances stock (including product switches).
+- **Search & Advanced Filtering**:
+  - Instant customer name search bar directly in the table header.
+  - Two-line modal filter system:
+    - Perfume product filter
+    - Price range filters (`minPrice` / `maxPrice`)
+    - Date presets (`Today`, `Last 7 Days`, `This Month`, `Last Month`) + custom start/end date range
+    - Payment status & payment option filter dropdowns
+  - Active filter count indicator badge with one-click reset.
+- **Automated Stock Deduction**: Recording a sale decrements stock across all item products in a single database transaction, guarded against insufficient stock. Editing a sale safely restores old item quantities and re-deducts new item selections.
 
 ### Module 3: Raw Materials Inventory & Restock Hub
 - **Raw Material Catalog**:
@@ -61,7 +68,7 @@ The system is strictly designed for **internal use by the business owner(s)** to
 - **Category Filter Tabs**: Filter the material list by category with item counts.
 - **"Got Supply" Restock Intake Log**:
   - Log incoming raw material shipments (Quantity received, unit cost, total spend preview, supplier name, date received).
-  - Automatically updates raw material stock level, refreshes cost per unit, and logs the inventory investment.
+  - Automatically updates raw material stock level, refreshes cost per unit, and automatically records an inventory `EXPENSE` transaction in the banking ledger.
 
 ### Module 4: Batch Production Engine
 Two production workflows are supported:
@@ -94,12 +101,26 @@ Two production workflows are supported:
 - **Actions**: Add a completed batch to sellable stock (transactional), or extend the end date.
 - **History**: Completed batches (added to stock) are listed with status badges.
 
-### Module 7: Finances & Partner Profit Split
-- Computed from **Payed** sales only:
-  - Total Revenue (sum of sale totals)
-  - Total Making Cost (quantity × product `making_cost`)
-  - Total Net Profit (revenue − making cost)
-- **Partner Split**: Net profit is split **Badar 65% / Hashir 35%**, shown as cards and a split bar.
+### Module 7: Cash-Basis Double-Entry Finances & Partner Ledger
+- **Cash-Basis Profit Formula**:
+  $$\text{Net Profit} = \text{Revenue} - \text{Expenses}$$
+  - Revenue: $\Sigma \text{REVENUE} - \Sigma \text{REFUND}$ from actual cash collections in the period.
+  - Expenses: $\Sigma \text{EXPENSE}$ (Inventory restocks + Operating, Equipment, and Financial expenses).
+  - Excludes unpaid/pending sales (tracked separately as Expected Receivables).
+- **Double-Entry Account Architecture**:
+  - `BUSINESS` account: Operational cash wallet where all revenue, restocks, operating costs, and capital land.
+  - `PARTNER` accounts (`BADAR`, `HASHIR`): Personal drawing ledger accounts.
+  - Derived balances from immutable `TxnEntry` records (`Decimal(14,2)` precision).
+- **Core Operations & Modals**:
+  - **Capital Contributions**: Partner capital injections credited directly to the company cash balance (non-revenue).
+  - **Quick Expenses**: Operating costs categorized into Ads, Rent, Packaging, Utilities, Salary, Transport, Equipment, Bank Interest/Fees, and Other.
+  - **Partner Drawings**: Cash payouts to partners guarded by all-time earned profit shares. During loss periods, withdrawals are disabled.
+  - **Debt & Loans**: Record loan capital disbursement and loan principal repayments.
+  - **Configurable Partner Equity**: Dynamically adjust partner share percentages (default: Badar 65%, Hashir 35%).
+- **Reporting & Period Views**:
+  - Monthly period selector with next/prev month buttons.
+  - **All Time** reporting view toggle with instant loading feedback.
+  - Complete, filterable, and paginated transaction audit ledger (`LedgerTable`).
 
 ### Module 8: Authentication & Access Control
 - **Single-owner login**: username/password checked against environment-stored credentials using a SHA-256 hash with a timing-safe comparison.
@@ -123,15 +144,15 @@ Two production workflows are supported:
 
 ## 5. Implementation Status
 
-All modules above are implemented as of September 2026:
+All modules above are implemented as of October 2026:
 
 | Module | Status |
 |--------|--------|
 | 1. Products Catalog | ✅ Implemented |
-| 2. Sales & Orders Register | ✅ Implemented |
+| 2. Sales & Orders Register (Multi-item & Filters) | ✅ Implemented |
 | 3. Raw Materials & Restock | ✅ Implemented |
 | 4. Batch Production (V1 + V2) | ✅ Implemented |
 | 5. Dashboard & Analytics | ✅ Implemented |
 | 6. Maceration Management | ✅ Implemented |
-| 7. Finances & Profit Split | ✅ Implemented |
+| 7. Cash-Basis Finances & Partner Ledger | ✅ Implemented |
 | 8. Authentication & Access Control | ✅ Implemented |

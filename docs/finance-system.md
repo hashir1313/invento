@@ -1,7 +1,7 @@
-# Finance & Banking System — Design
+# Finance & Banking System — Design & Implementation
 
-Status: **Proposed** (not yet implemented)
-Supersedes: the profit logic in `docs/PRD.md` §Module 7 and `getFinancesMetrics()` in `app/actions.ts`.
+Status: **Implemented**
+Supersedes: the legacy COGS profit logic in `docs/PRD.md` §Module 7 and `getFinancesMetrics()` in `app/actions.ts`.
 
 This document defines the replacement for the current finance module: a cash-basis profit
 formula plus a simple double-entry banking ledger with a company account and one personal
@@ -187,14 +187,16 @@ enum TxnType          { CAPITAL_CONTRIBUTION  REVENUE  REFUND  EXPENSE  PROFIT_W
 enum ExpenseCategory  { INVENTORY  ADS  RENT  PACKAGING  UTILITIES  SALARY  TRANSPORT  EQUIPMENT  BANK_INTEREST_FEES  OTHER }
 
 model Account {
-  id         String      @id @default(uuid())
-  type       AccountType
-  partner    Partner?    // null on the BUSINESS account
-  name       String
-  created_at DateTime    @default(now())
+  id               String      @id @default(uuid())
+  type             AccountType
+  partner          Partner?    // null on the BUSINESS account
+  name             String
+  share_percentage Float       @default(0) // e.g. 65 for Badar, 35 for Hashir
+  created_at       DateTime    @default(now())
+  updated_at       DateTime    @updatedAt
 
-  outgoing   TxnEntry[]  @relation("From")
-  incoming   TxnEntry[]  @relation("To")
+  outgoing         TxnEntry[]  @relation("From")
+  incoming         TxnEntry[]  @relation("To")
 
   @@unique([type, partner])
   @@map("accounts")
@@ -351,39 +353,43 @@ A sale for 5,000 goes `PAYED` → `REFUNDED`:
 - No new columns on `Sale`.
 - Apply with `prisma db push` (this repo has no `prisma/migrations/`), then `prisma generate`.
 
-### 9.2 Actions — new file `app/bank-actions.ts`
+### 9.2 Actions — `app/bank-actions.ts`
 
-`app/actions.ts` is already ~1,000 lines and this is a separate domain.
+`app/bank-actions.ts` serves as the dedicated backend domain for financial and ledger transactions.
 
 | Action | Does |
 |---|---|
-| `recordCapitalContribution({ partner, amount, notes, date })` | Contribution → BUSINESS |
-| `recordExpense({ amount, category, notes, date })` | Manual operating cost |
-| `recordProfitWithdrawal({ partner, amount, notes })` | Guarded payout (rule 5/6) |
-| `getBankMetrics({ year, month })` | Period profit + revenue + expenses + balances + per-partner earned/withdrawn/available |
-| `getLedger({ type, partner, from, to, page })` | Paginated, filterable transaction list |
+| `recordCapitalContribution({ partner, amount, notes, date })` | Inflow from partner → BUSINESS account |
+| `recordExpense({ amount, category, notes, date })` | Operating / equipment / financial expense outflow from BUSINESS |
+| `recordProfitWithdrawal({ partner, amount, notes })` | Guarded payout from BUSINESS → partner account |
+| `recordLoanDisbursement({ amount, lenderName, notes, date })` | Debt financing inflow into BUSINESS account |
+| `recordLoanRepayment({ amount, lenderName, notes, date })` | Loan principal repayment outflow from BUSINESS |
+| `updatePartnerShares(shares)` | Dynamically updates equity/share percentages on partner accounts |
+| `getBankMetrics({ year, month, isAllTime })` | Period profit + revenue + expenses + balances + per-partner earned/withdrawn/available (supports monthly and All-Time view) |
+| `getLedger({ type, partner, from, to, page, limit })` | Paginated, filterable transaction list |
 
 ### 9.3 Hooks — inside existing `$transaction` blocks
 
-| Existing action | Add |
+| Existing action | Hook Behavior |
 |---|---|
-| `createSale` | If `PAYED` → post `REVENUE`, `occurred_at = date_purchased` |
-| `updateSale` | Recompute on status/amount/date change; post `REFUND` if it became `REFUNDED` |
-| `updateSalePaymentStatus` | Same transitions — **must first be wrapped in a `$transaction`**, it currently is not |
-| `restockRawMaterial` | Post `EXPENSE · INVENTORY`, `occurred_at = date_received` |
+| `createSale` | If `PAYED` → post `REVENUE`, `occurred_at = paid_at || date_purchased` |
+| `updateSale` | Recomputes on status/amount/date change; posts `REFUND` if status transitions to `REFUNDED` |
+| `updateSalePaymentStatus` | Wrapped in `$transaction`; manages `REVENUE`/`REFUND` entries dynamically |
+| `restockRawMaterial` | Posts `EXPENSE · INVENTORY`, `occurred_at = date_received` |
 
 ### 9.4 UI — `app/finances/page.tsx` + `components/finances/`
 
-- Period selector (month / year), server-driven via `searchParams`.
-- Cards: **Net Profit** (with a loss state), Total Revenue, Total Expenses, **Cash in stock**,
-  Expected (PENDING), **Business cash balance**.
-- Per-partner panels: this month's share · withdrawn · **available** + Withdraw button
-  (disabled when available ≤ 0).
-- Split bar, rendered only when period profit > 0.
-- Tabs: **Overview · Ledger · Money In · Costs** (Costs gets a prominent quick-add — see
-  issue 16).
-- Negative figures styled with the existing `--color-error` tokens; `formatPKR` output for
-  negatives should be verified (issue 3).
+- Client container in `components/finances/FinancesClient.tsx`.
+- Modals:
+  - `CapitalContributionModal.tsx` — record partner capital injections.
+  - `QuickExpenseModal.tsx` — quick-add operating and equipment expenses.
+  - `WithdrawModal.tsx` — partner profit drawings with available balance enforcement.
+  - `LoanModal.tsx` — log loan disbursement and principal repayment.
+  - `PartnerShareModal.tsx` — adjust partner share percentages dynamically.
+- `LedgerTable.tsx` — filterable, paginated audit log of every cash movement.
+- Period selector: Month navigation and an **All Time** reporting view toggle with instant loading feedback.
+- Metrics cards: Net Profit (with loss state), Revenue, Expenses, Cash in Stock, Expected (PENDING), Business Cash.
+- Per-partner cards: share, withdrawn, available to withdraw. Split bar when profit > 0.
 
 ### 9.5 Backfill — `scripts/backfill-banking.ts`
 

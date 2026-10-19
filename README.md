@@ -6,16 +6,16 @@ Internal inventory, production, and sales management system for a perfume brand.
 
 - **Dashboard** — Revenue, pending receivables, low-stock warnings, payment-method breakdown, recent sales, and maceration alerts at a glance
 - **Product Management** — Track perfume products with images, ml volume, impression tags, pricing, making cost, and stock levels (with quick +/- stock controls)
-- **Sales Tracking** — Record and edit sales, filter by payment status/method, auto-calculated totals, inline payment status dropdowns, and review follow-up toggles
+- **Sales Tracking** — Multi-item perfume orders per sale, customer name search, advanced filters modal (perfume, price range, date presets, custom date range), auto-calculated totals, inline payment status dropdowns, and review follow-up toggles
 - **Raw Materials Inventory** — Manage oils, solvents, bottles, caps, stickers, packaging, and cards with category filter tabs and low-stock badges
-- **Restock Tracking ("Got Supply")** — Log incoming material shipments with quantity, unit cost, supplier, and total spend; stock updates atomically
+- **Restock Tracking ("Got Supply")** — Log incoming material shipments with quantity, unit cost, supplier, and total spend; stock updates atomically and automatically books an inventory expense
 - **Batch Production (v2)** — Bottle or mass (ml) production modes with automatic oil/ethanol calculation from a concentration percentage, optional packaging deductions, and live insufficient-stock validation
 - **Batch Production (v1, legacy)** — Recipe-based production where per-bottle material quantities are defined per product (`/batch-production`, not shown in the nav)
 - **Maceration Management** — Start maceration batches with a date range, get "ready" alerts when periods end, then add to stock or extend the period
-- **Finances** — Revenue, making cost, and net profit from paid sales with a partner profit split (Badar 65% / Hashir 35%)
+- **Finances & Banking Ledger** — Cash-basis profit & loss ($Revenue - Expenses$), double-entry company & partner accounts, capital contributions, categorized operating & equipment expenses, loan financing, partner drawings, and configurable partner profit splits
 - **Authentication** — Single-owner username/password login with SHA-256 credential hashing and HS256 JWT session cookies; every route is protected by `proxy.ts`
 - **Dark Mode** — Light/dark theme toggle persisted to localStorage, applied before first paint (no flash)
-- **Responsive** — Desktop top navigation plus a mobile bottom bar for quick on-the-go sales entry
+- **Responsive** — Desktop top navigation plus a mobile bottom bar with primary shortcuts and a "More" drawer menu
 
 ## Tech Stack
 
@@ -60,7 +60,7 @@ Internal inventory, production, and sales management system for a perfume brand.
    ```bash
    bun run seed
    ```
-   Seeds 8 raw materials, 3 products, and 3 sample sales.
+   Seeds 8 raw materials, 3 products, and 3 default finance accounts.
 
 5. Generate auth credentials and add them to `.env`:
    ```bash
@@ -99,6 +99,7 @@ Open [http://localhost:3000](http://localhost:3000) and sign in at `/login`.
 | `bun run start` | Start production server |
 | `bun run seed` | Seed database with sample data |
 | `bun run create-user <user> <pass>` | Generate auth credentials for `.env` |
+| `bun run migrate-sales` | Backfill existing sales into multi-item `sale_items` |
 | `bun run lint` | Run ESLint |
 
 ## Routes
@@ -107,12 +108,12 @@ Open [http://localhost:3000](http://localhost:3000) and sign in at `/login`.
 |-------|------|
 | `/` | Executive dashboard |
 | `/products` | Perfume product catalog |
-| `/sales` | Sales & orders register |
+| `/sales` | Sales & orders register (multi-item support & filters) |
 | `/raw-materials` | Raw materials inventory & restock hub |
 | `/batch-production-v2` | Batch production (bottle/mass modes) — nav "Production" |
 | `/batch-production` | Legacy recipe-based batch production (not in nav) |
 | `/maceration` | Maceration management |
-| `/finances` | Profit & partner split |
+| `/finances` | Cash-basis profit & double-entry banking ledger |
 | `/login` | Sign in (only public page) |
 
 All other routes require a valid session; `proxy.ts` redirects unauthenticated requests to `/login`.
@@ -121,24 +122,26 @@ All other routes require a valid session; `proxy.ts` redirects unauthenticated r
 
 ```
 app/
-├── actions.ts               # All server actions (CRUD, production, maceration, metrics)
+├── actions.ts               # Core server actions (CRUD, production, maceration, metrics)
+├── bank-actions.ts          # Finance, banking ledger, expense, and loan server actions
 ├── api/auth/                # Login & logout API routes
 ├── batch-production/        # Legacy recipe-based production page
 ├── batch-production-v2/     # Concentration-based production page
-├── finances/                # Profit & partner split page
+├── finances/                # Cash-basis profit & partner ledger page
 ├── login/                   # Login page
 ├── maceration/              # Maceration management page
 ├── products/                # Product catalog page
 ├── raw-materials/           # Raw materials inventory page
-├── sales/                   # Sales register page
+├── sales/                   # Sales register page (multi-item orders, filters)
 ├── globals.css              # Geist design tokens (light + dark)
 ├── layout.tsx               # Root layout: fonts, theme bootstrap, Navbar
 └── page.tsx                 # Dashboard
 components/
 ├── CalendarDatePicker.tsx   # Custom calendar date picker
 ├── MacerationAlertCards.tsx # Dashboard maceration action cards
-├── Navbar.tsx               # Desktop top nav + mobile bottom nav, logout
-└── ThemeToggle.tsx          # Light/dark theme toggle
+├── Navbar.tsx               # Desktop top nav + mobile bottom nav with "More" menu
+├── ThemeToggle.tsx          # Light/dark theme toggle
+└── finances/                # Modals for capital, expenses, loans, partner shares, withdrawals & ledger table
 lib/
 ├── auth.ts                  # JWT session + credential verification
 ├── prisma.ts                # Prisma client singleton
@@ -146,11 +149,12 @@ lib/
 └── webp-compressor.ts       # Client-side WebP compression
 prisma/
 ├── schema.prisma            # Database schema
-└── seed.ts                  # Sample data seed
+└── seed.ts                  # Sample data seed (materials, products, default accounts)
 scripts/
-└── create-user.ts           # Auth credential generator
+├── create-user.ts           # Auth credential generator
+└── migrate-sales.ts         # Multi-item sales backfill migration script
 proxy.ts                     # Route guard (Next.js 16 middleware replacement)
-docs/                        # PRD, plan, database, and architecture docs
+docs/                        # PRD, plan, database, architecture, finance-system docs
 ```
 
 ## Documentation
@@ -159,8 +163,9 @@ docs/                        # PRD, plan, database, and architecture docs
 |----------|-------------|
 | [`docs/PRD.md`](./docs/PRD.md) | Product requirements — modules, features, non-functional requirements |
 | [`docs/architecture.md`](./docs/architecture.md) | System architecture, data flows, and directory layout |
-| [`docs/database.md`](./docs/database.md) | Database schema, enums, and ERD |
-| [`docs/plan.md`](./docs/plan.md) | Implementation phases and testing strategy |
+| [`docs/database.md`](./docs/database.md) | Database schema, enums, models, and ERD |
+| [`docs/finance-system.md`](./docs/finance-system.md) | Cash-basis finance system, double-entry banking ledger, partner shares, and loans |
+| [`docs/plan.md`](./docs/plan.md) | Implementation phases, milestones, and testing strategy |
 | [`DESIGN.md`](./DESIGN.md) | Geist design system reference (colors, type, components) |
 
 ## License
