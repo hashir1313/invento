@@ -14,7 +14,8 @@ import {
   Clock,
   Store,
   Menu,
-  X
+  X,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -24,7 +25,7 @@ export default function Navbar() {
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  if (pathname === "/login") return null;
+  if (pathname === "/login" || pathname === "/setup") return null;
 
   const navItems = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -96,6 +97,17 @@ export default function Navbar() {
                   </Link>
                 );
               })}
+              <Link
+                href="/settings"
+                className={cn(
+                  "btn btn-secondary btn-sm ml-1.5",
+                  pathname === "/settings" && "bg-hairline text-ink"
+                )}
+                title="Settings & Users"
+                aria-label="Settings & Users"
+              >
+                <Settings className="w-3.5 h-3.5" />
+              </Link>
               <button
                 onClick={handleLogout}
                 className="btn btn-secondary btn-sm ml-1.5"
@@ -140,6 +152,19 @@ export default function Navbar() {
                 </Link>
               );
             })}
+            <Link
+              href="/settings"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
+                pathname === "/settings"
+                  ? "bg-hairline-soft text-ink font-medium"
+                  : "text-body hover:text-ink hover:bg-hairline-soft"
+              )}
+            >
+              <Settings className={cn("w-4 h-4", pathname === "/settings" ? "text-ink" : "text-mute")} />
+              <span>Settings & Users</span>
+            </Link>
             <div className="h-px bg-hairline my-1" />
             <button
               onClick={() => {

@@ -122,11 +122,12 @@ Two production workflows are supported:
   - **All Time** reporting view toggle with instant loading feedback.
   - Complete, filterable, and paginated transaction audit ledger (`LedgerTable`).
 
-### Module 8: Authentication & Access Control
-- **Single-owner login**: username/password checked against environment-stored credentials using a SHA-256 hash with a timing-safe comparison.
-- **Session**: HS256 JWT stored in an `httpOnly`, `SameSite=Lax` cookie (7-day expiry), signed with `AUTH_SECRET`.
-- **Route Protection**: `proxy.ts` (Next.js 16 middleware replacement) redirects every unauthenticated request to `/login`; login/logout are exposed via `/api/auth/login` and `/api/auth/logout`.
-- **Credential Tooling**: `bun run create-user <username> <password>` generates the values needed in `.env`.
+### Module 8: Authentication & Team User Management
+- **Database-Backed Authentication**: Users stored in the `users` table with salted `bcrypt` password hashes and unique usernames.
+- **First-Run Onboarding (`/setup`)**: On a fresh instance deployment, visiting the app automatically prompts the `/setup` wizard to create the initial business administrator. Once created, `/setup` is permanently locked.
+- **Session Security**: Stateless signed HS256 JWT stored in an `httpOnly`, `SameSite=Lax` cookie (7-day expiry), signed with `AUTH_SECRET`.
+- **User & Team Management (`/settings`)**: Authenticated team members can change their passwords, invite/create additional team members, and manage authorized users.
+- **Route Protection**: `proxy.ts` (Next.js 16 request interceptor) redirects unauthenticated visitors to `/login` (or `/setup` if uninitialized) while allowing static assets and auth API endpoints.
 
 ---
 

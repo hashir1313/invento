@@ -12,9 +12,10 @@ function getSecret() {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow login page and auth API routes
+  // Allow login page, setup wizard, and auth API routes
   if (
     pathname === "/login" ||
+    pathname === "/setup" ||
     pathname.startsWith("/api/auth/")
   ) {
     return NextResponse.next();

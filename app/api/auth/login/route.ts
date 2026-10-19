@@ -12,17 +12,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const valid = await verifyCredentials(username, password);
-    if (!valid) {
+    const user = await verifyCredentials(username, password);
+    if (!user) {
       return NextResponse.json(
         { error: "Invalid username or password" },
         { status: 401 }
       );
     }
 
-    await createSession(username);
+    await createSession(user);
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, user: { username: user.username, name: user.name } });
   } catch (error) {
     console.error("Login error:", error);
     return NextResponse.json(

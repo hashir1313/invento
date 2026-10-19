@@ -28,6 +28,15 @@ erDiagram
 
     Account ||--o{ TxnEntry : "from/to account"
 
+    User {
+        string id PK
+        string username UK
+        string name
+        string password_hash
+        datetime created_at
+        datetime updated_at
+    }
+
     Product {
         string id PK
         string name
@@ -225,6 +234,7 @@ erDiagram
 | `MacerationBatch` | Aging batch tracking | Created by V2 production (maceration days > 0) or manually; released to stock via `addMacerationToStock` |
 | `Account` | Ledger account entity | One `BUSINESS` account and one `PARTNER` account per partner with configurable `share_percentage` |
 | `TxnEntry` | Immutable financial ledger entry | Double-entry money movement with idempotency keys (`sale_id`, `restock_id`), `occurred_at` period timestamp, and `Decimal(14,2)` precision |
+| `User` | Authenticated team member | Encrypted salted bcrypt password hash, unique username, independent session tracking |
 
 ### Relationships & Constraints
 - `Sale.items` cascade-delete with `Sale`.
@@ -516,6 +526,21 @@ model TxnEntry {
   @@index([from_id])
   @@index([to_id])
   @@map("txn_entries")
+}
+
+// ==========================================
+// USER AUTHENTICATION
+// ==========================================
+
+model User {
+  id            String   @id @default(uuid())
+  username      String   @unique
+  name          String
+  password_hash String
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  @@map("users")
 }
 ```
 

@@ -47,7 +47,7 @@ graph TD
 | **Frontend UI** | **React 19 + TypeScript** | Client-side pages with optimistic local state around Server Action calls. |
 | **Styling** | **Tailwind CSS v4 + lucide-react** | Geist design tokens defined in `app/globals.css` (`@theme`), light/dark variants, responsive mobile-first grids. |
 | **Backend & API** | **Next.js Server Actions** | Type-safe mutations split between `app/actions.ts` (inventory, sales, production) and `app/bank-actions.ts` (double-entry ledger, expenses, loans), wrapped in `prisma.$transaction`. |
-| **Auth** | **`jose` (HS256 JWT) + SHA-256 hashes** | Credentials compared timing-safely against `.env`; sessions live in an `httpOnly` cookie (7 days). |
+| **Auth** | **`jose` (HS256 JWT) + `bcrypt-ts`** | Database-backed `User` authentication with salted bcrypt hashes; stateless signed session cookies (7 days); first-run onboarding wizard. |
 | **Database ORM** | **Prisma ORM** | Schema-driven, type-safe client; singleton in `lib/prisma.ts`. |
 | **Database** | **Neon PostgreSQL** | Serverless cloud Postgres via pooled `DATABASE_URL`. |
 | **Image Optimizer** | **Canvas → WebP (`lib/webp-compressor.ts`)** | Client-side resize to ≤ 800×800 and WebP encode (< 100 KB) before saving the data URL on the product record. |
@@ -172,22 +172,33 @@ sequenceDiagram
 
 Releasing an aged batch (`addMacerationToStock`) increments `Product.stock` and flips the batch to `ADDED_TO_STOCK`; `extendMaceration` pushes the end date out instead.
 
-### F. Authentication Flow
+### F. Authentication & First-Run Onboarding Flow
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Owner as Business Owner
+    actor Owner as Business User
+    participant Guard as proxy.ts
+    participant Setup as /setup (First-Run)
     participant Login as /login Page
     participant API as /api/auth/login
-    participant Guard as proxy.ts
+    participant DB as Neon DB (User table)
     participant App as Protected Pages
 
-    Owner->>Login: Enters username + password
-    Login->>API: POST credentials
-    API->>API: SHA-256 hash + timing-safe compare against .env
-    API-->>Login: Sets httpOnly invento-session cookie (HS256 JWT, 7 days)
-    Login->>App: Redirect to /
-    Note over Guard: Every request verifies the cookie signature;<br/>missing/invalid token → redirect to /login (cookie cleared if invalid)
+    alt First-Run (0 Users in DB)
+        Owner->>Guard: Navigates to app
+        Guard->>Login: Redirects unauthenticated visitor
+        Login->>Setup: checkNeedsSetup() detects 0 users -> redirect /setup
+        Owner->>Setup: Enters Name, Admin Username, Password
+        Setup->>DB: Hashes with salted bcrypt, creates User, creates JWT session
+        Setup->>App: Lands on Dashboard
+    else Standard Login
+        Owner->>Login: Enters username + password
+        Login->>API: POST credentials
+        API->>DB: Queries User record & verifies bcrypt hash
+        API-->>Login: Sets httpOnly invento-session cookie (HS256 JWT, 7 days)
+        Login->>App: Redirect to requested page
+    end
+    Note over Guard: Verifies token signature via AUTH_SECRET;<br/>missing/invalid token -> redirect to /login
 ```
 
 ---
@@ -215,7 +226,15 @@ sequenceDiagram
 | **Financing & Debt** | `recordLoanDisbursement`, `recordLoanRepayment` |
 | **Reporting & Ledger** | `getBankMetrics` (supports month/year and `isAllTime`), `getLedger` (paginated audit log), `getCurrentPKTYearMonth` |
 
-Transaction-backed (stock & ledger safe) actions: `createSale`, `updateSale`, `updateSalePaymentStatus`, `deleteSale`, `restockRawMaterial`, `produceBatch`, `produceBatchV2`, `createMacerationBatch`, `addMacerationToStock`, `extendMaceration`, `saveRecipe`, `recordCapitalContribution`, `recordExpense`, `recordProfitWithdrawal`, `recordLoanDisbursement`, `recordLoanRepayment`.
+### User Management Actions (`app/user-actions.ts`)
+
+| Group | Actions |
+|-------|---------|
+| **Onboarding & Setup** | `checkNeedsSetup`, `setupInitialAdmin` |
+| **Team Management** | `getUsers`, `createUser`, `deleteUser` |
+| **Security** | `changePassword` |
+
+Transaction-backed (stock & ledger safe) actions: `createSale`, `updateSale`, `updateSalePaymentStatus`, `deleteSale`, `restockRawMaterial`, `produceBatch`, `produceBatchV2`, `createMacerationBatch`, `addMacerationToStock`, `extendMaceration`, `saveRecipe`, `recordCapitalContribution`, `recordExpense`, `recordProfitWithdrawal`, `recordLoanDisbursement`, `recordLoanRepayment`, `setupInitialAdmin`.
 
 ---
 
@@ -229,13 +248,16 @@ invento/
 │   ├── globals.css                    # Geist design tokens (@theme) + light/dark styles
 │   ├── actions.ts                     # Core domain server actions (products, sales, raw materials, batch)
 │   ├── bank-actions.ts                # Double-entry ledger and finance server actions
+│   ├── user-actions.ts                # User management, setup wizard, and password actions
 │   ├── api/
-│   │   ├── auth/login/route.ts        # POST — verify credentials, set session cookie
+│   │   ├── auth/login/route.ts        # POST — verify credentials against DB, set session cookie
 │   │   └── auth/logout/route.ts       # POST — clear session cookie
 │   ├── batch-production/              # V1 recipe-based production (legacy, not in nav)
 │   ├── batch-production-v2/           # V2 concentration-based production (nav "Production")
 │   ├── finances/                      # Cash-basis profit & ledger page
-│   ├── login/                         # Login page (only public page)
+│   ├── login/                         # Sign in page (with auto-redirect to setup if 0 users)
+│   ├── setup/                         # First-run onboarding wizard (creates initial admin)
+│   ├── settings/                      # User management & password change page
 │   ├── maceration/                    # Maceration management
 │   ├── products/                      # Product catalog (grid, CRUD, image upload)
 │   ├── raw-materials/                 # Raw materials inventory + restock intake
@@ -254,7 +276,7 @@ invento/
 │       ├── QuickExpenseModal.tsx      # Operating & equipment expense intake modal
 │       └── WithdrawModal.tsx          # Guarded partner profit drawing modal
 ├── lib/
-│   ├── auth.ts                        # JWT session helpers + credential verification
+│   ├── auth.ts                        # JWT session helpers, bcrypt hashing & credential check
 │   ├── prisma.ts                      # Prisma client singleton
 │   ├── utils.ts                       # cn(), PKR/date formatters, label/color maps
 │   └── webp-compressor.ts             # Client-side WebP compression
