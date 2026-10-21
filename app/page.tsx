@@ -155,18 +155,27 @@ export default async function DashboardPage() {
 
       {/* Low Stock Product Warnings Section */}
       {metrics.lowStockProducts.length > 0 && (
-        <div className="card border-error/30">
-          <div className="flex items-center justify-between gap-4 mb-5">
-            <div className="flex items-center gap-3">
-              <span className="badge badge-error">
-                <AlertTriangle className="w-3 h-3" />
-                Action needed
-              </span>
+        <div className="card p-4 sm:p-6 border-error/30">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-5">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+              <div className="flex items-center justify-between sm:justify-start gap-3">
+                <span className="badge badge-error shrink-0">
+                  <AlertTriangle className="w-3 h-3" />
+                  Action needed
+                </span>
+                <Link
+                  href="/batch-production-v2"
+                  className="sm:hidden text-link hover:text-link-deep text-sm font-medium flex items-center gap-1 shrink-0"
+                >
+                  <span>Produce Now</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
               <h2 className="text-h3">Critical Low Stock Perfumes</h2>
             </div>
             <Link
               href="/batch-production-v2"
-              className="text-link hover:text-link-deep text-sm font-medium flex items-center gap-1 shrink-0"
+              className="hidden sm:flex text-link hover:text-link-deep text-sm font-medium items-center gap-1 shrink-0"
             >
               <span>Produce Now</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -176,17 +185,17 @@ export default async function DashboardPage() {
             {metrics.lowStockProducts.map((product: any) => (
               <div
                 key={product.id}
-                className="card-sm flex justify-between items-center gap-3"
+                className="card-sm p-3.5 sm:p-4 flex justify-between items-center gap-3"
               >
-                <div>
-                  <p className="text-sm font-medium text-ink">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-ink truncate">
                     {product.name}
                   </p>
                   <p className="text-xs text-mute mt-0.5">
                     {product.perfume_quantity_ml}ml — {formatPKR(product.price)}
                   </p>
                 </div>
-                <div className="text-right">
+                <div className="text-right shrink-0">
                   <span className="badge badge-error tabular-nums">
                     {product.stock} bottle{product.stock === 1 ? "" : "s"}
                   </span>
@@ -199,18 +208,27 @@ export default async function DashboardPage() {
 
       {/* Maceration Complete Alerts Section */}
       {metrics.completedMacerationsCount > 0 && (
-        <div className="card border-warning/50">
-          <div className="flex items-center justify-between gap-4 mb-3">
-            <div className="flex items-center gap-3">
-              <span className="badge badge-warning">
-                <Timer className="w-3 h-3" />
-                Ready
-              </span>
+        <div className="card p-4 sm:p-6 border-warning/50">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+              <div className="flex items-center justify-between sm:justify-start gap-3">
+                <span className="badge badge-warning shrink-0">
+                  <Timer className="w-3 h-3" />
+                  Ready
+                </span>
+                <Link
+                  href="/maceration"
+                  className="sm:hidden text-link hover:text-link-deep text-sm font-medium flex items-center gap-1 shrink-0"
+                >
+                  <span>Manage Maceration</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
               <h2 className="text-h3">Maceration Complete — Action Required</h2>
             </div>
             <Link
               href="/maceration"
-              className="text-link hover:text-link-deep text-sm font-medium flex items-center gap-1 shrink-0"
+              className="hidden sm:flex text-link hover:text-link-deep text-sm font-medium items-center gap-1 shrink-0"
             >
               <span>Manage Maceration</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -227,7 +245,7 @@ export default async function DashboardPage() {
 
       {/* Recent Sales Overview Table */}
       <div className="card p-0 overflow-hidden">
-        <div className="flex items-center justify-between gap-4 px-6 pt-6 pb-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 px-4 sm:px-6 pt-5 sm:pt-6 pb-4 sm:pb-5">
           <div>
             <div className="flex items-center gap-2">
               <Package className="w-4 h-4 text-mute" />
@@ -239,7 +257,7 @@ export default async function DashboardPage() {
           </div>
           <Link
             href="/sales"
-            className="text-link hover:text-link-deep text-sm font-medium flex items-center gap-1 shrink-0"
+            className="text-link hover:text-link-deep text-sm font-medium flex items-center gap-1 shrink-0 self-start sm:self-auto"
           >
             <span>View All Sales</span>
             <ArrowRight className="w-4 h-4" />
