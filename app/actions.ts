@@ -13,6 +13,7 @@ import {
   Prisma
 } from "@prisma/client";
 import { getOrCreateDefaultAccounts } from "./bank-actions";
+import { calculateBatchV2Plan, validateSaleStockRequirements } from "@/lib/domain-math";
 
 function safeRevalidate(path: string) {
   try {
@@ -202,33 +203,17 @@ export async function createSale(data: {
       throw new Error("Please add at least one perfume to the sale.");
     }
 
-    // Consolidate required quantity per product_id to validate and decrement stock
-    const productQuantities: Record<string, number> = {};
     for (const item of rawItems) {
       if (!item.product_id) throw new Error("A perfume item is missing product selection.");
-      const qty = Math.max(1, Math.floor(Number(item.quantity) || 1));
-      productQuantities[item.product_id] = (productQuantities[item.product_id] || 0) + qty;
     }
+    const productIds = [...new Set(rawItems.map((item) => item.product_id))];
 
     const result = await prisma.$transaction(async (tx) => {
-      const productIds = Object.keys(productQuantities);
       const dbProducts = await tx.product.findMany({
         where: { id: { in: productIds } },
       });
       const productMap = new Map(dbProducts.map((p) => [p.id, p]));
-
-      // Validate existence and stock
-      for (const [pid, neededQty] of Object.entries(productQuantities)) {
-        const prod = productMap.get(pid);
-        if (!prod) {
-          throw new Error("One or more selected products not found.");
-        }
-        if (prod.stock < neededQty) {
-          throw new Error(
-            `Insufficient stock for "${prod.name}"! Available: ${prod.stock} bottle(s), Requested: ${neededQty}`
-          );
-        }
-      }
+      const productQuantities = validateSaleStockRequirements(rawItems, productMap);
 
       // Decrement stock
       for (const [pid, neededQty] of Object.entries(productQuantities)) {
@@ -968,27 +953,18 @@ export async function produceBatchV2(data: {
   notes?: string;
 }) {
   try {
-    const qty = Number(data.quantity);
-    const concentration = Number(data.concentration) / 100;
     const macerationDays = Number(data.maceration_days) || 0;
 
     const result = await prisma.$transaction(async (tx) => {
       const product = await tx.product.findUnique({ where: { id: data.product_id } });
       if (!product) throw new Error("Product not found");
 
-      let totalMl: number;
-      let bottlesProduced: number;
-
-      if (data.production_mode === "bottle") {
-        totalMl = qty * product.perfume_quantity_ml;
-        bottlesProduced = qty;
-      } else {
-        totalMl = qty;
-        bottlesProduced = Math.floor(qty / product.perfume_quantity_ml);
-      }
-
-      const oilNeeded = totalMl * concentration;
-      const ethanolNeeded = totalMl - oilNeeded;
+      const { totalMl, bottlesProduced, oilNeeded, ethanolNeeded } = calculateBatchV2Plan({
+        productionMode: data.production_mode,
+        quantity: Number(data.quantity),
+        bottleSizeMl: product.perfume_quantity_ml,
+        concentrationPct: Number(data.concentration),
+      });
 
       const oilMaterial = await tx.rawMaterial.findUnique({ where: { id: data.oil_material_id } });
       if (!oilMaterial) throw new Error("Oil material not found");

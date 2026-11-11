@@ -51,11 +51,12 @@ different and must never be substituted for one another.
 Your own example separates them cleanly: profit is **−500**, yet the business account holds
 **39,500** — because 40,000 of that is capital you and Badar put in, not earnings.
 
-**Master identity** (useful as an assertion in tests):
+**Master identity** (reconciles all accounts and cash flows in `getBankMetrics()`):
 
 ```
-Business Cash = Σ Capital Contributions + All-time Net Profit − Σ Withdrawals
+Business Cash = Σ Capital Contributions + All-time Net Profit + Outstanding Loan Debt − Σ Withdrawals
 ```
+*(where `Outstanding Loan Debt = max(0, Σ LOAN_DISBURSEMENT − Σ LOAN_REPAYMENT)`)*
 
 Contributions and withdrawals move cash but **never** touch profit. That single rule is what
 keeps the two layers honest.
@@ -89,9 +90,9 @@ Net Profit (period) = Revenue − Expenses
 | PENDING sales | **Excluded** from revenue; shown separately as *Expected* |
 | REFUNDED sales | Revenue reversed (net zero contribution) |
 | Period | Monthly, selectable; default current month |
-| Loss period (profit ≤ 0) | **Hide the partner split.** Show one loss figure. Block withdrawals. |
-| Withdrawal guard | **Earned-share limit only** — business cash *may* go negative |
-| History | **Backfill** all existing sales + restocks; operating costs entered by hand |
+| Loss period (profit ≤ 0) | **Hide the partner split.** Show one loss figure. Block withdrawals when all-time profit ≤ 0. |
+| Withdrawal guard | **Earned-share AND liquid-cash limit** — cannot exceed unclaimed profit share or `businessCash`. |
+| Account bootstrap | **Auto-initialized** on first ledger read/write via `getOrCreateDefaultAccounts()` (or `bun run seed`). |
 
 ### Worked example — your March
 
@@ -134,7 +135,7 @@ Expected (not yet paid) = 6,000     ← informational only, excluded from everyt
 
 ## 4. Accounts
 
-Three accounts, created once at backfill:
+Three accounts, created automatically by `getOrCreateDefaultAccounts()` (or `bun run seed`):
 
 | Account | Type | Purpose |
 |---|---|---|
@@ -250,18 +251,19 @@ Notes:
 3. **Both layers are written in the same `$transaction` as the domain change.** A `REVENUE` row
    and the `PAYED` status either both exist or neither does.
 4. **Contributions and withdrawals never affect profit.**
-5. **Partners may only withdraw up to their earned share** (`SHARE × all-time profit −
-   all-time withdrawn`). Business cash may go negative as a result — that is an accepted,
-   deliberate choice (issue 12).
+5. **Partners may only withdraw up to the lesser of their earned share and liquid cash:**
+   `availableToWithdraw = max(0, min(unclaimedProfit, max(0, businessCash)))`.
+   Withdrawals exceeding either unclaimed profit or liquid business cash are rejected.
 6. **Withdrawals are blocked entirely when all-time profit ≤ 0.**
 7. **The split bar renders only when the selected period's profit > 0.**
 8. **Period split ≠ withdrawable.** The period split shows this month's share; *Available* is
    always computed on **all-time** profit. They differ whenever any prior period was a loss.
    The UI must show both and label them, or partners will think money is missing (see §8).
-9. **Only `PAYED` sales may be refunded.** Refunding a `PENDING` sale would post an outflow for
-   money that never arrived. Cancel/un-pay must route through `REFUNDED`.
+9. **Refund vs. reverting to pending:** Marking a `PAYED` sale `REFUNDED` keeps the original
+   `REVENUE` row and adds a `REFUND` outflow row. Reverting a sale to `PENDING` deletes its
+   `TxnEntry` rows and clears `paid_at`.
 10. **`proportionally derived shares must sum exactly`:** compute one partner from the other —
-    `hashir = round(profit × 0.35)`, `badar = profit − hashir`. Never round both independently.
+    `hashir = round(profit × (hashirShare / totalShares))`, `badar = profit − hashir`. Never round both independently.
 
 ---
 
@@ -321,18 +323,19 @@ Hashir account = 12,775        Badar account = 23,725
 
 Check the identity: `40,000 (capital) + 36,500 (all-time profit) − 36,500 (withdrawn) = 40,000` ✓
 
-### 8.3 Tight cash — negative balance permitted
+### 8.3 Tight cash — capped by liquid business cash
 
-Suppose the account holds only **8,000** but Hashir's available is **12,775**.
+Suppose Hashir's unclaimed profit share is **12,775**, but the business account only holds **8,000**
+in liquid cash (because the rest of the profit is tied up in raw materials and finished stock).
 
-Because you chose *allow negative cash*, the full **12,775** is withdrawable:
+Because withdrawals are guarded by both unclaimed profit and liquid business cash:
 
 ```
-Business cash = 8,000 − 12,775 = −4,775     ← deficit, displayed prominently
+Available to withdraw = min(12,775, max(0, 8,000)) = 8,000
 ```
 
-No block, no clawback. The account simply reads as a deficit until contributions or revenue
-cover it. See issue 12.
+Any withdrawal above **8,000** is rejected with an insufficient liquid cash error until more cash
+comes in from sales, capital contributions, or loans.
 
 ### 8.4 Refund reversal
 
@@ -345,207 +348,71 @@ A sale for 5,000 goes `PAYED` → `REFUNDED`:
 
 ---
 
-## 9. What we will build
+## 9. Implemented System Reference
 
 ### 9.1 Schema — `prisma/schema.prisma`
 
-- `Account`, `TxnEntry`, and the three enums above.
-- No new columns on `Sale`.
-- Apply with `prisma db push` (this repo has no `prisma/migrations/`), then `prisma generate`.
+- `Account`, `TxnEntry`, and enums `Partner`, `AccountType`, `TxnType`, `ExpenseCategory`.
+- `Sale.paid_at` tracks when a sale transitions to `PAYED`.
+- `TxnEntry` references `Sale` and `RawMaterialRestock` with `onDelete: SetNull` and idempotency unique constraints `@@unique([sale_id, type])` and `@@unique([restock_id, type])`.
 
 ### 9.2 Actions — `app/bank-actions.ts`
 
-`app/bank-actions.ts` serves as the dedicated backend domain for financial and ledger transactions.
+`app/bank-actions.ts` serves as the dedicated backend domain for financial and ledger transactions:
 
 | Action | Does |
 |---|---|
-| `recordCapitalContribution({ partner, amount, notes, date })` | Inflow from partner → BUSINESS account |
-| `recordExpense({ amount, category, notes, date })` | Operating / equipment / financial expense outflow from BUSINESS |
-| `recordProfitWithdrawal({ partner, amount, notes })` | Guarded payout from BUSINESS → partner account |
-| `recordLoanDisbursement({ amount, lenderName, notes, date })` | Debt financing inflow into BUSINESS account |
-| `recordLoanRepayment({ amount, lenderName, notes, date })` | Loan principal repayment outflow from BUSINESS |
-| `updatePartnerShares(shares)` | Dynamically updates equity/share percentages on partner accounts |
-| `getBankMetrics({ year, month, isAllTime })` | Period profit + revenue + expenses + balances + per-partner earned/withdrawn/available (supports monthly and All-Time view) |
-| `getLedger({ type, partner, from, to, page, limit })` | Paginated, filterable transaction list |
+| `getCurrentPKTYearMonth()` | Returns current `{ year, month }` in PKT (`UTC+5`) |
+| `getOrCreateDefaultAccounts(tx?)` | Ensures `BUSINESS`, `BADAR` (65%), and `HASHIR` (35%) accounts exist |
+| `recordCapitalContribution({ partner, amount, notes, date })` | Inflow from partner → `BUSINESS` account |
+| `recordExpense({ amount, category, notes, date, paid_personally_by })` | Expense outflow from `BUSINESS`; if `paid_personally_by` is set, also posts a matching `CAPITAL_CONTRIBUTION` for that partner |
+| `recordProfitWithdrawal({ partner, amount, notes, date })` | Guarded payout from `BUSINESS` → partner account (checks `allTimeNetProfit > 0`, `amount <= unclaimedProfit`, and `amount <= businessCash`) |
+| `updatePartnerShares(shares)` | Dynamically updates equity/share percentages on partner accounts (must sum to 100%) |
+| `recordLoanDisbursement({ lender, amount, notes, date })` | Debt financing inflow into `BUSINESS` account |
+| `recordLoanRepayment({ lender, principalAmount, interestAmount, notes, date })` | Guarded by `businessCash`; posts `LOAN_REPAYMENT` for principal and `EXPENSE (BANK_INTEREST_FEES)` for interest |
+| `getBankMetrics({ year, month, isAllTime })` | Period profit + revenue + expenses + balances + loans + per-partner earned/withdrawn/available + stock valuation + pending receivables |
+| `getLedger({ page, limit, type, partner, category, startDate, endDate })` | Paginated, filterable transaction audit log |
 
-### 9.3 Hooks — inside existing `$transaction` blocks
+### 9.3 Hooks — inside `app/actions.ts` `$transaction` blocks
 
-| Existing action | Hook Behavior |
+| Action | Hook Behavior |
 |---|---|
-| `createSale` | If `PAYED` → post `REVENUE`, `occurred_at = paid_at || date_purchased` |
-| `updateSale` | Recomputes on status/amount/date change; posts `REFUND` if status transitions to `REFUNDED` |
-| `updateSalePaymentStatus` | Wrapped in `$transaction`; manages `REVENUE`/`REFUND` entries dynamically |
-| `restockRawMaterial` | Posts `EXPENSE · INVENTORY`, `occurred_at = date_received` |
+| `createSale` | If `PAYED` → sets `paid_at = date_purchased` and creates `REVENUE` `TxnEntry` |
+| `updateSale` | Syncs `paid_at` and `REVENUE`/`REFUND` entries when status, amount, or date changes |
+| `updateSalePaymentStatus` | `PAYED` upserts `REVENUE` and deletes `REFUND`; `REFUNDED` upserts `REFUND` (retaining `REVENUE`); `PENDING` deletes the sale's `TxnEntry` rows and clears `paid_at` |
+| `deleteSale` | Restores product stock and deletes `TxnEntry` rows for `sale_id` before deleting `Sale` |
+| `restockRawMaterial` | Posts `EXPENSE · INVENTORY` (`occurred_at = date_received`, `restock_id` idempotency key) |
 
 ### 9.4 UI — `app/finances/page.tsx` + `components/finances/`
 
-- Client container in `components/finances/FinancesClient.tsx`.
+- Server page in `app/finances/page.tsx` with client container in `components/finances/FinancesClient.tsx`.
 - Modals:
   - `CapitalContributionModal.tsx` — record partner capital injections.
-  - `QuickExpenseModal.tsx` — quick-add operating and equipment expenses.
-  - `WithdrawModal.tsx` — partner profit drawings with available balance enforcement.
-  - `LoanModal.tsx` — log loan disbursement and principal repayment.
+  - `QuickExpenseModal.tsx` — quick-add operating and equipment expenses (including personal-paid advance option).
+  - `WithdrawModal.tsx` — partner profit drawings with unclaimed profit and liquid cash enforcement.
+  - `LoanModal.tsx` — log loan disbursement and principal/interest repayment.
   - `PartnerShareModal.tsx` — adjust partner share percentages dynamically.
 - `LedgerTable.tsx` — filterable, paginated audit log of every cash movement.
-- Period selector: Month navigation and an **All Time** reporting view toggle with instant loading feedback.
-- Metrics cards: Net Profit (with loss state), Revenue, Expenses, Cash in Stock, Expected (PENDING), Business Cash.
-- Per-partner cards: share, withdrawn, available to withdraw. Split bar when profit > 0.
-
-### 9.5 Backfill — `scripts/backfill-banking.ts`
-
-Run once via `bun scripts/backfill-banking.ts`. Must be **idempotent** (the unique keys make
-re-running safe).
-
-1. Create the three accounts if absent.
-2. For every `PAYED` sale → `REVENUE` row, `occurred_at = date_purchased`.
-3. For every restock → `EXPENSE · INVENTORY` row, `occurred_at = date_received`.
-4. Print per-period totals so the numbers can be checked by hand.
-5. You then enter **by hand**: opening capital contributions and all historical operating
-   costs (ads, rent) — these cannot be inferred from existing data.
-
-### 9.6 Verification
-
-- Assert the master identity (§2) in a test: `cash = contributions + all-time profit − withdrawn`.
-- Assert `Σ shares = profit` exactly (rule 10).
-- Re-run backfill twice → row count unchanged (idempotency).
-- Reconcile a closed month's profit against a hand calculation.
+- Period selector: Month navigation (PKT boundaries) and an **All Time** reporting view toggle.
+- Metrics cards: Net Profit (with loss state), Revenue, Expenses, Cash in Stock, Expected (PENDING), Business Cash, and Loan Debt summary.
+- Per-partner cards: share, withdrawn, available to withdraw, and overdrawn warning when applicable. Split bar renders when period profit > 0.
 
 ---
 
-## 10. Issues we will face
+## 10. Design Decisions & Known Limitations
 
-### A · Data integrity
+### Resolved in Current Implementation
+- **Cascade-safe ledger**: `TxnEntry` uses `onDelete: SetNull` on `sale_id`, `restock_id`, `from_id`, and `to_id` (`deleteSale` explicitly removes entries for deleted sales).
+- **Exact money precision**: `TxnEntry.amount` uses `Decimal(14, 2)` in Postgres.
+- **Exact split rounding**: `hashir = Math.round(profit * ratio)`, `badar = profit - hashir`.
+- **Paid timestamp & PKT boundaries**: `Sale.paid_at` is tracked, and `getBankMetrics()` computes monthly date ranges in PKT (`UTC+5`).
+- **Personal-paid business expenses**: Handled in `recordExpense({ paid_personally_by })` via paired `CAPITAL_CONTRIBUTION` + `EXPENSE` rows.
+- **Cash in stock**: Combines raw materials (`current_stock * cost_per_unit`) and finished goods (`stock * making_cost`).
+- **Overdrawn state**: Surfaced per partner in `getBankMetrics()` (`isOverdrawn`, `overdrawnAmount`) if a later refund reduces all-time profit below prior withdrawals.
 
-**1. Cascade deletes will silently destroy history.**
-`Sale` cascades from `Product` (`onDelete: Cascade`) and `RawMaterialRestock` cascades from
-`RawMaterial`. If `TxnEntry` inherits that cascade, deleting a perfume or a fragrance oil erases
-the revenue/expense rows behind it — past profit and cash balance change with no trace.
-→ Make `sale_id`/`restock_id` `SET NULL` (ledger rows survive), **or** block deletion when
-ledger rows reference the record, **or** soft-delete. Decide before writing the hooks.
-
-**2. `Float` cannot be trusted for money.**
-Schema-wide `Float` accumulates rounding drift. For a ledger whose whole value is that it
-reconciles, use `Decimal(14,2)` (as specified) or integer paisa. If `Float` is kept anyway,
-round on every write and compare with an epsilon — but expect balances that never quite tie out.
-
-**3. Split rounding loses a rupee.**
-`round(37,000 × 0.65) + round(37,000 × 0.35)` will not always equal the total. Derive one from
-the other (rule 10). Also verify `formatPKR` renders negatives sensibly — it sets
-`maximumFractionDigits: 0`, so sub-rupee drift is hidden rather than fixed.
-
-**4. Nothing records *who* performed an action.**
-A withdrawal row with no actor means you cannot tell which partner entered it. Add
-`created_by` if the session identity is reachable from server actions.
-
-### B · Time and periods
-
-**5. There is no `paid_at`.**
-Only `date_purchased` exists. A sale made 28 March but paid 5 April — which period? Cash basis
-says *when the money arrived*. Add `paid_at`, set on the transition to `PAYED`, and bucket
-revenue by it. Without this, "revenue" is really "orders", not cash.
-
-**6. Timezone will put sales in the wrong month.**
-Dates are stored UTC; "this month" in Pakistan (UTC+5) differs from UTC for any late-night
-sale. Period boundaries must be computed explicitly in `Asia/Karachi`, not via naive
-`>= startOfMonth && < nextMonth` on UTC values.
-
-**7. Backdating silently rewrites closed periods.**
-Editing `date_purchased` or `date_received`, or flipping an old `PENDING` sale to `PAYED`,
-changes a month you have already reported. There is no period locking today.
-→ Either lock closed periods, or at minimum show a banner when a past period's figure changes.
-
-**8. A refund after a withdrawal drives Available negative.**
-Revenue reverses, all-time profit drops, and a partner who already cashed out now has
-`withdrawn > share`. No clawback was chosen — so surface an explicit **"over-drawn by X"**
-state and block further withdrawals until it recovers.
-
-**9. Un-paying a sale is undefined.**
-`updateSalePaymentStatus` currently allows `PAYED → PENDING` freely. Did the cash go back or
-not? Force that path through `REFUNDED`, or treat the reversal as a refund. Leaving it open
-guarantees a cash/profit mismatch.
-
-### C · Semantics
-
-**10. Profit and cash will look contradictory, and users will report it as a bug.**
-Your March: profit −500, cash 39,500. Both correct. The labels must do the work —
-*"Money earned this period"* vs *"Money in the account"* — with the cash-in-stock card as the
-bridge between them. Budget time for explaining this.
-
-**11. A partner paying a business cost from their own pocket is not modelled.**
-If Hashir personally pays 5,000 for ads: profit should drop 5,000, but business cash did not
-move. With the current schema you would have to post an expense (cash drops — wrong) or skip it
-(profit overstated — wrong). Needs a `paid_from: BUSINESS | PERSONAL` flag, and personal-paid
-costs become a receivable owed to that partner. **Open decision.**
-
-**12. Negative cash has no floor and no meaning attached.**
-Your choice permits `−4,775`. It must be rendered unmistakably (it now means partners have
-effectively lent the business money), and you should decide whether later contributions are
-automatically consumed to clear the deficit or are tracked separately.
-
-**13. "Cash in stock" is rough and will be wrong in two ways.**
-(a) `cost_per_unit` is *overwritten* by the latest restock (`actions.ts:435`), so stock is
-valued at last purchase price, not average cost — a cheap restock instantly devalues everything
-on hand. (b) Counting raw materials alone makes the figure collapse right after a production
-run, because materials become bottles; finished goods must be included
-(`product.stock × making_cost`). That means **`making_cost` must still be maintained** even
-though it no longer feeds profit — worth stating explicitly in the UI, or it will rot.
-
-### D · Build and rollout
-
-**14. Profit figures will jump overnight.**
-The formula changes from COGS to cash basis, so historical numbers will not reconcile with
-anything anyone remembers. Expect "why did profit change?" — document the new formula
-everywhere before it ships.
-
-**15. `db push` with no migration history.**
-Additive changes (new tables, new enums) are safe, but there is no migration file to roll back
-and no record of what changed. Take a database backup first.
-
-**16. Cash-basis profit is only as good as the expenses you remember to log.**
-Forget a month of ads and profit is overstated with no warning. Costs entry needs to be
-fast and obvious — a quick-add right on the finance page, not buried behind the raw-materials
-flow. This is an adoption risk more than a technical one.
-
-**17. Server actions can fire twice.**
-Double-click, retry, or React 19's double render in dev will post duplicate rows. Unique keys
-protect sale/restock-derived entries; **manual** contributions, expenses and withdrawals need a
-client-generated idempotency key or a disabled-on-submit button.
-
-**18. Seed data would be booked as real revenue.**
-`prisma/seed.ts` creates `PAYED` sales dated today. Backfill would treat them as genuine
-history. Clean or exclude them before running against the real database.
-
-**19. Query load on every render.**
-The page is `export const revalidate = 0`, so every visit re-aggregates — now across
-`txn_entries` as well as `Sale`. Fine at this scale, but keep it on aggregates (never hydrate
-rows for metrics) and index `(type, occurred_at)`.
-
-**20. Five existing documents describe the old formula.**
-`README.md`, `docs/PRD.md`, `docs/database.md`, `docs/architecture.md` and `docs/plan.md` all
-state the COGS-based 65/35 split. All must be updated or the next change reintroduces the old
-logic.
-
----
-
-## 11. Open decisions
-
-| # | Question | Options |
-|---|---|---|
-| 1 | Partner pays a business cost personally (issue 11) | `paid_from` flag + receivable · force everything through BUSINESS · ignore |
-| 2 | Revenue period bucketing (issue 5) | Add `paid_at` and use it · keep `date_purchased` |
-| 3 | Money type (issue 2) | `Decimal(14,2)` · integer paisa · keep `Float` |
-| 4 | Closed-period policy (issue 7) | Lock · allow silent restatement · banner on change |
-| 5 | Delete policy (issue 1) | Block · `SET NULL` · soft-delete |
-| 6 | Literal profit snapshots | Always derive live · also store a monthly snapshot to freeze reported months |
-| 7 | Deficit clearance (issue 12) | Contributions auto-clear the deficit · track deficit separately |
-
----
-
-## 12. Documents to update when this ships
-
-- `README.md` — feature bullet and `/finances` route description
-- `docs/PRD.md` — Module 7 rewrite
-- `docs/database.md` — new models, enums, ERD
-- `docs/architecture.md` — server action surface, data flows
-- `docs/plan.md` — phase status and the finance regression check
-- `docs/README.md` — index entry for this file
+### Remaining Limitations & Future Considerations
+- **No actor audit column**: `TxnEntry` does not record `created_by` (single-owner auth).
+- **No closed-period locking**: Backdating or editing historical sales/restocks recalculates past monthly figures immediately.
+- **Last-cost stock valuation**: `restockRawMaterial()` overwrites `RawMaterial.cost_per_unit` with the latest non-zero `unit_cost` rather than a weighted average.
+- **No automated ledger test suite yet**: The master identity (`identityBalanced` in `getBankMetrics()`) is checked at runtime, but there are no automated `bun test` assertions yet.
+- **Legacy `getFinancesMetrics()`**: Still present in `app/actions.ts` as an unused COGS helper; new finance features must use `app/bank-actions.ts`.

@@ -3,6 +3,14 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { Partner, AccountType, TxnType, ExpenseCategory, Prisma } from "@prisma/client";
+import {
+  getPKTYearMonth,
+  getMonthDateRangePKT,
+  calculatePartnerShares,
+  calculateAvailableToWithdraw,
+  calculateExpectedBusinessCash,
+  isLedgerIdentityBalanced,
+} from "@/lib/domain-math";
 
 function safeRevalidate(path: string) {
   try {
@@ -17,22 +25,7 @@ function safeRevalidate(path: string) {
 // ==========================================
 
 export async function getCurrentPKTYearMonth() {
-  const now = new Date();
-  const pktTime = new Date(now.getTime() + 5 * 60 * 60 * 1000);
-  return {
-    year: pktTime.getUTCFullYear(),
-    month: pktTime.getUTCMonth() + 1,
-  };
-}
-
-function getMonthDateRangePKT(year: number, month: number) {
-  // PKT is UTC+5.
-  // Start of month in PKT: year-month-01 00:00:00 PKT -> UTC: year-(month-1)-1 00:00 - 5 hours
-  const startDate = new Date(Date.UTC(year, month - 1, 1, -5, 0, 0, 0));
-  const nextMonthYear = month === 12 ? year + 1 : year;
-  const nextMonth = month === 12 ? 1 : month + 1;
-  const endDate = new Date(Date.UTC(nextMonthYear, nextMonth - 1, 1, -5, 0, 0, -1));
-  return { startDate, endDate };
+  return getPKTYearMonth();
 }
 
 // ==========================================
@@ -197,7 +190,6 @@ export async function recordProfitWithdrawal(data: {
 
     const result = await prisma.$transaction(async (tx) => {
       const { business, badar, hashir } = await getOrCreateDefaultAccounts(tx);
-      const partnerAccount = data.partner === Partner.BADAR ? badar : hashir;
 
       // 1. Calculate All-time Net Profit
       const [revSum, refSum, expSum] = await Promise.all([
@@ -217,17 +209,13 @@ export async function recordProfitWithdrawal(data: {
       }
 
       // 2. Calculate Partner's Total Earned Profit
-      const totalPartnerShares = (badar.share_percentage || 65) + (hashir.share_percentage || 35);
-      const partnerRatio = (partnerAccount.share_percentage || 0) / (totalPartnerShares || 100);
-
-      // Hashir derived directly, Badar derived as remainder for exact sum if 2 partners
-      let partnerEarned = 0;
-      if (data.partner === Partner.HASHIR) {
-        partnerEarned = Math.round(allTimeNetProfit * partnerRatio);
-      } else {
-        const hashirEarned = Math.round(allTimeNetProfit * ((hashir.share_percentage || 35) / (totalPartnerShares || 100)));
-        partnerEarned = allTimeNetProfit - hashirEarned;
-      }
+      const shares = calculatePartnerShares(
+        allTimeNetProfit,
+        badar.share_percentage || 65,
+        hashir.share_percentage || 35
+      );
+      const partnerEarned = data.partner === Partner.HASHIR ? shares.hashir : shares.badar;
+      const partnerAccount = data.partner === Partner.BADAR ? badar : hashir;
 
       // 3. Calculate Prior Withdrawals
       const priorWithdrawnSum = await tx.txnEntry.aggregate({
@@ -554,30 +542,26 @@ export async function getBankMetrics(params?: { year?: number; month?: number; i
 
     const badarSharePct = badar.share_percentage || 65;
     const hashirSharePct = hashir.share_percentage || 35;
-    const totalShares = badarSharePct + hashirSharePct || 100;
 
     // Period Split (Only shown if periodNetProfit > 0)
-    let badarPeriodShare = 0;
-    let hashirPeriodShare = 0;
-    if (periodNetProfit > 0) {
-      hashirPeriodShare = Math.round(periodNetProfit * (hashirSharePct / totalShares));
-      badarPeriodShare = periodNetProfit - hashirPeriodShare;
-    }
+    const { badar: badarPeriodShare, hashir: hashirPeriodShare } = calculatePartnerShares(
+      periodNetProfit,
+      badarSharePct,
+      hashirSharePct
+    );
 
     // All-time Earned
-    let badarAllTimeEarned = 0;
-    let hashirAllTimeEarned = 0;
-    if (allTimeNetProfit > 0) {
-      hashirAllTimeEarned = Math.round(allTimeNetProfit * (hashirSharePct / totalShares));
-      badarAllTimeEarned = allTimeNetProfit - hashirAllTimeEarned;
-    }
+    const { badar: badarAllTimeEarned, hashir: hashirAllTimeEarned } = calculatePartnerShares(
+      allTimeNetProfit,
+      badarSharePct,
+      hashirSharePct
+    );
 
     const badarUnclaimed = badarAllTimeEarned - badarWithdrawn;
     const hashirUnclaimed = hashirAllTimeEarned - hashirWithdrawn;
 
-    const availableLiquid = Math.max(0, businessCash);
-    const badarAvailable = Math.max(0, Math.min(badarUnclaimed, availableLiquid));
-    const hashirAvailable = Math.max(0, Math.min(hashirUnclaimed, availableLiquid));
+    const badarAvailable = calculateAvailableToWithdraw(badarUnclaimed, businessCash);
+    const hashirAvailable = calculateAvailableToWithdraw(hashirUnclaimed, businessCash);
 
     // 5. Cash in Stock (Raw Materials + Finished Goods)
     const [rawMaterials, products] = await Promise.all([
@@ -599,8 +583,13 @@ export async function getBankMetrics(params?: { year?: number; month?: number; i
     const pendingSalesCount = pendingSalesAgg._count;
 
     // 7. Identity check: Business Cash = Capital + All-time Profit + Outstanding Debt - Withdrawals
-    const expectedBusinessCash = totalCapitalContributions + allTimeNetProfit + outstandingLoanDebt - totalWithdrawals;
-    const identityBalanced = Math.abs(businessCash - expectedBusinessCash) < 0.01;
+    const expectedBusinessCash = calculateExpectedBusinessCash({
+      totalCapitalContributions,
+      allTimeNetProfit,
+      outstandingLoanDebt,
+      totalWithdrawals,
+    });
+    const identityBalanced = isLedgerIdentityBalanced(businessCash, expectedBusinessCash);
 
     return {
       selectedYear,

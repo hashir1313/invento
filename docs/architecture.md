@@ -203,7 +203,7 @@ sequenceDiagram
 | **Raw Materials** | `getRawMaterials`, `createRawMaterial`, `updateRawMaterial`, `restockRawMaterial`, `deleteRawMaterial` |
 | **Recipes & Production** | `getRecipes`, `getRecipesForProduct`, `saveRecipe`, `produceBatch` (V1), `produceBatchV2` |
 | **Maceration** | `getMacerationBatches`, `createMacerationBatch`, `addMacerationToStock`, `extendMaceration`, `getCompletedMacerations`, `deleteMacerationBatch` |
-| **Dashboard Metrics** | `getDashboardMetrics` |
+| **Dashboard & Legacy Metrics** | `getDashboardMetrics`, `getFinancesMetrics` *(legacy COGS helper, superseded by `app/bank-actions.ts`)* |
 
 ### Finance & Banking Ledger Actions (`app/bank-actions.ts`)
 
@@ -255,9 +255,11 @@ invento/
 │       └── WithdrawModal.tsx          # Guarded partner profit drawing modal
 ├── lib/
 │   ├── auth.ts                        # JWT session helpers + credential verification
+│   ├── domain-math.ts                 # Pure finance, PKT date, production & stock invariant helpers
 │   ├── prisma.ts                      # Prisma client singleton
 │   ├── utils.ts                       # cn(), PKR/date formatters, label/color maps
 │   └── webp-compressor.ts             # Client-side WebP compression
+├── tests/                             # Bun unit tests for finance & stock invariants
 ├── prisma/
 │   ├── schema.prisma                  # PostgreSQL schema definition
 │   └── seed.ts                        # Sample data seed (materials, products, default accounts)

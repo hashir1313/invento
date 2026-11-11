@@ -215,11 +215,11 @@ erDiagram
 
 | Model | Purpose | Key behavior |
 |-------|---------|--------------|
-| `Product` | Finished perfume catalog | `stock` decremented on sale, incremented on production/maceration release; `making_cost` tracked for catalog valuation |
+| `Product` | Finished perfume catalog | `stock` decremented on sale, incremented on production/maceration release; `making_cost` tracked for catalog valuation; `image_url` currently stores client-compressed WebP data URLs |
 | `Sale` | Customer order header | Records customer, total price, payment status, payment option, notes, and review flag |
 | `SaleItem` | Multi-product order line items | Multiple products & quantities per sale; handles atomic stock deductions and re-balances |
 | `RawMaterial` | Manufacturing inputs | `current_stock` watched against `min_stock_alert` for low-stock warnings |
-| `RawMaterialRestock` | "Got Supply" intake log | Created together with a `current_stock` increment and `cost_per_unit` refresh; logs auto `EXPENSE` |
+| `RawMaterialRestock` | "Got Supply" intake log | Created together with a `current_stock` increment and `cost_per_unit` update (latest non-zero `unit_cost`); logs auto `EXPENSE` |
 | `BatchProduction` | Production run history | Written by both V1 (`produceBatch`) and V2 (`produceBatchV2`) |
 | `BatchRecipeItem` | Per-bottle recipe (V1) | Unique per `(product_id, raw_material_id)`; replaced wholesale on recipe save |
 | `MacerationBatch` | Aging batch tracking | Created by V2 production (maceration days > 0) or manually; released to stock via `addMacerationToStock` |

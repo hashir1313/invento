@@ -27,7 +27,7 @@ The system is strictly designed for **internal use by the business owner(s)** to
 - **Product Management**: Create, update, view, and delete finished perfume items.
 - **Perfume Details**:
   - Name (e.g., "Velvet Rose", "Santal Musk")
-  - Volume in milliliters (`perfume_quantity` in ml, e.g., 30ml, 50ml, 100ml)
+  - Volume in milliliters (`perfume_quantity_ml`, e.g., 30ml, 50ml, 100ml)
   - Impression Flag (Boolean: whether it is an impression of a designer brand or original formulation)
   - Designer Brand Name (Optional string, e.g., "Tom Ford Tobacco Vanille")
   - Unit Selling Price (in PKR)
@@ -113,9 +113,9 @@ Two production workflows are supported:
   - Derived balances from immutable `TxnEntry` records (`Decimal(14,2)` precision).
 - **Core Operations & Modals**:
   - **Capital Contributions**: Partner capital injections credited directly to the company cash balance (non-revenue).
-  - **Quick Expenses**: Operating costs categorized into Ads, Rent, Packaging, Utilities, Salary, Transport, Equipment, Bank Interest/Fees, and Other.
-  - **Partner Drawings**: Cash payouts to partners guarded by all-time earned profit shares. During loss periods, withdrawals are disabled.
-  - **Debt & Loans**: Record loan capital disbursement and loan principal repayments.
+  - **Quick Expenses**: Operating costs categorized into Ads, Rent, Packaging, Utilities, Salary, Transport, Equipment, Bank Interest/Fees, and Other (with optional `paid_personally_by` advance handling).
+  - **Partner Drawings**: Cash payouts to partners guarded by all-time earned profit shares and available liquid business cash. During loss periods, withdrawals are disabled.
+  - **Debt & Loans**: Record loan capital disbursement and loan principal + interest repayments.
   - **Configurable Partner Equity**: Dynamically adjust partner share percentages (default: Badar 65%, Hashir 35%).
 - **Reporting & Period Views**:
   - Monthly period selector with next/prev month buttons.
