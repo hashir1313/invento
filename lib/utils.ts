@@ -41,6 +41,7 @@ export const PAYMENT_OPTION_LABELS = {
 export const MATERIAL_CATEGORY_LABELS = {
   OIL: "Fragrance Oil (ml)",
   SOLVENT: "Solvent / Ethanol (ml)",
+  PREPARED_FRAGRANCE: "Prepared Fragrance (ml)",
   BOTTLE: "Glass Bottle (pcs)",
   CAP_SPRAY: "Atomizer Spray / Cap (pcs)",
   STICKER: "Product Sticker (pcs)",

@@ -163,6 +163,7 @@ erDiagram
 ### `MaterialCategory`
 - `OIL`: Essential / Fragrance oils (measured in ml or grams).
 - `SOLVENT`: Perfumer's ethanol / perfumery solvent (measured in ml).
+- `PREPARED_FRAGRANCE`: Blended / macerated fragrance bulk liquid (measured in ml).
 - `BOTTLE`: Glass bottles (measured in pieces).
 - `CAP_SPRAY`: Atomizer spray pumps and caps (measured in pieces).
 - `STICKER`: Product labels & bottle stickers (measured in pieces).
@@ -272,6 +273,7 @@ enum PaymentOption {
 enum MaterialCategory {
   OIL
   SOLVENT
+  PREPARED_FRAGRANCE
   BOTTLE
   CAP_SPRAY
   STICKER
@@ -395,15 +397,20 @@ model RawMaterialRestock {
 }
 
 model BatchProduction {
-  id             String   @id @default(uuid())
-  product_id     String
-  batch_quantity Int      // Number of finished bottles produced
-  date_produced  DateTime @default(now())
-  notes          String?
-  created_at     DateTime @default(now())
+  id              String       @id @default(uuid())
+  product_id      String?
+  raw_material_id String?      // Prepared fragrance produced in bulk (if applicable)
+  batch_quantity  Int          @default(0) // Number of finished bottles produced
+  volume_ml       Float?       // Volume in ml produced (if bulk fragrance blend)
+  date_produced   DateTime     @default(now())
+  notes           String?
+  created_at      DateTime     @default(now())
 
-  product        Product  @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  product         Product?     @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  raw_material    RawMaterial? @relation(fields: [raw_material_id], references: [id], onDelete: Cascade)
 
+  @@index([product_id])
+  @@index([raw_material_id])
   @@map("batch_productions")
 }
 
@@ -422,8 +429,10 @@ model BatchRecipeItem {
 
 model MacerationBatch {
   id                   String            @id @default(uuid())
-  product_id           String
-  batch_quantity       Int               // Number of bottles in maceration
+  product_id           String?
+  raw_material_id      String?           // Bulk prepared fragrance in maceration
+  batch_quantity       Int               @default(0) // Number of bottles in maceration
+  volume_ml            Float?            // Volume in ml in bulk maceration
   start_date           DateTime          // When maceration started
   end_date             DateTime          // When maceration is expected to end
   status               MacerationStatus  @default(MACERATING)
@@ -431,10 +440,13 @@ model MacerationBatch {
   created_at           DateTime          @default(now())
   updated_at           DateTime          @updatedAt
 
-  product              Product           @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  product              Product?          @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  raw_material         RawMaterial?      @relation(fields: [raw_material_id], references: [id], onDelete: Cascade)
 
   @@index([status])
   @@index([end_date])
+  @@index([product_id])
+  @@index([raw_material_id])
   @@map("maceration_batches")
 }
 

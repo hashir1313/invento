@@ -13,7 +13,11 @@ import {
   Prisma
 } from "@prisma/client";
 import { getOrCreateDefaultAccounts } from "./bank-actions";
-import { calculateBatchV2Plan, validateSaleStockRequirements } from "@/lib/domain-math";
+import { 
+  calculateBatchV2Plan, 
+  calculateBulkFragrancePlan,
+  validateSaleStockRequirements 
+} from "@/lib/domain-math";
 
 function safeRevalidate(path: string) {
   try {
@@ -173,6 +177,16 @@ export async function getSales(filterStatus?: string, filterOption?: string) {
   }
 }
 
+export type AutoBottleItem = {
+  product_id: string;
+  bottle_count: number;
+  fragrance_material_id: string;
+  bottle_material_id?: string;
+  cap_material_id?: string;
+  box_material_id?: string;
+  sticker_material_id?: string;
+};
+
 export async function createSale(data: {
   customer_name: string;
   date_purchased?: string;
@@ -184,6 +198,7 @@ export async function createSale(data: {
   payment_option: PaymentOption;
   review_given: boolean;
   notes?: string;
+  auto_bottle?: AutoBottleItem[];
 }) {
   try {
     const rawItems: SaleItemInput[] =
@@ -209,6 +224,67 @@ export async function createSale(data: {
     const productIds = [...new Set(rawItems.map((item) => item.product_id))];
 
     const result = await prisma.$transaction(async (tx) => {
+      // Execute any on-the-spot auto-bottling requests before stock validation
+      if (data.auto_bottle && data.auto_bottle.length > 0) {
+        for (const plan of data.auto_bottle) {
+          const bottleCount = Math.max(1, Math.floor(Number(plan.bottle_count) || 1));
+          const prod = await tx.product.findUnique({ where: { id: plan.product_id } });
+          if (!prod) throw new Error("Product for auto-bottling not found");
+
+          const fragranceMl = bottleCount * prod.perfume_quantity_ml;
+          const fragMat = await tx.rawMaterial.findUnique({ where: { id: plan.fragrance_material_id } });
+          if (!fragMat) throw new Error("Fragrance liquid not found");
+          if (fragMat.current_stock < fragranceMl) {
+            throw new Error(`Insufficient ${fragMat.name}! Need ${fragranceMl}ml, but only ${fragMat.current_stock}ml available.`);
+          }
+
+          await tx.rawMaterial.update({
+            where: { id: plan.fragrance_material_id },
+            data: { current_stock: { decrement: fragranceMl } },
+          });
+
+          let packagingCost = 0;
+          const pkgIds = [
+            plan.bottle_material_id,
+            plan.cap_material_id,
+            plan.box_material_id,
+            plan.sticker_material_id,
+          ].filter(Boolean) as string[];
+
+          if (pkgIds.length > 0) {
+            const pkgMats = await tx.rawMaterial.findMany({ where: { id: { in: pkgIds } } });
+            for (const pkg of pkgMats) {
+              if (pkg.current_stock < bottleCount) {
+                throw new Error(`Insufficient ${pkg.name}! Need ${bottleCount} pcs, but only ${pkg.current_stock} pcs available.`);
+              }
+              packagingCost += pkg.cost_per_unit || 0;
+              await tx.rawMaterial.update({
+                where: { id: pkg.id },
+                data: { current_stock: { decrement: bottleCount } },
+              });
+            }
+          }
+
+          const unitMakingCost = (prod.perfume_quantity_ml * (fragMat.cost_per_unit || 0)) + packagingCost;
+
+          await tx.product.update({
+            where: { id: prod.id },
+            data: {
+              stock: { increment: bottleCount },
+              making_cost: unitMakingCost > 0 ? Math.round(unitMakingCost * 100) / 100 : prod.making_cost,
+            },
+          });
+
+          await tx.batchProduction.create({
+            data: {
+              product_id: prod.id,
+              batch_quantity: bottleCount,
+              notes: `Auto-bottled ${bottleCount} bottle(s) on-the-spot for sale to ${data.customer_name.trim()}`,
+            },
+          });
+        }
+      }
+
       const dbProducts = await tx.product.findMany({
         where: { id: { in: productIds } },
       });
@@ -1059,6 +1135,241 @@ export async function produceBatchV2(data: {
   }
 }
 
+export async function blendBulkFragrance(data: {
+  raw_material_id?: string;
+  new_fragrance_name?: string;
+  total_ml: number;
+  concentration: number;
+  oil_material_id: string;
+  ethanol_material_id: string;
+  maceration_days?: number;
+  notes?: string;
+}) {
+  try {
+    const macerationDays = Number(data.maceration_days) || 0;
+    const totalMl = Number(data.total_ml);
+    const concentration = Number(data.concentration);
+
+    const result = await prisma.$transaction(async (tx) => {
+      const oilMaterial = await tx.rawMaterial.findUnique({ where: { id: data.oil_material_id } });
+      if (!oilMaterial) throw new Error("Fragrance oil material not found");
+
+      const ethanolMaterial = await tx.rawMaterial.findUnique({ where: { id: data.ethanol_material_id } });
+      if (!ethanolMaterial) throw new Error("Ethanol / Solvent material not found");
+
+      const { oilNeeded, ethanolNeeded, costPerMl } = calculateBulkFragrancePlan({
+        totalMl,
+        concentrationPct: concentration,
+        oilCostPerUnit: oilMaterial.cost_per_unit,
+        ethanolCostPerUnit: ethanolMaterial.cost_per_unit,
+      });
+
+      if (oilMaterial.current_stock < oilNeeded) {
+        throw new Error(`Insufficient ${oilMaterial.name}! Need ${oilNeeded.toFixed(1)} ml, but only ${oilMaterial.current_stock} ml available.`);
+      }
+      if (ethanolMaterial.current_stock < ethanolNeeded) {
+        throw new Error(`Insufficient ${ethanolMaterial.name}! Need ${ethanolNeeded.toFixed(1)} ml, but only ${ethanolMaterial.current_stock} ml available.`);
+      }
+
+      await tx.rawMaterial.update({
+        where: { id: data.oil_material_id },
+        data: { current_stock: { decrement: oilNeeded } },
+      });
+      await tx.rawMaterial.update({
+        where: { id: data.ethanol_material_id },
+        data: { current_stock: { decrement: ethanolNeeded } },
+      });
+
+      let targetMaterial;
+      if (data.raw_material_id) {
+        targetMaterial = await tx.rawMaterial.findUnique({ where: { id: data.raw_material_id } });
+        if (!targetMaterial) throw new Error("Target prepared fragrance material not found");
+      } else if (data.new_fragrance_name?.trim()) {
+        targetMaterial = await tx.rawMaterial.create({
+          data: {
+            name: data.new_fragrance_name.trim(),
+            category: MaterialCategory.PREPARED_FRAGRANCE,
+            unit_of_measure: UnitOfMeasure.ML,
+            current_stock: 0,
+            cost_per_unit: Math.round(costPerMl * 100) / 100,
+            min_stock_alert: 100,
+          },
+        });
+      } else {
+        throw new Error("Please specify a target Prepared Fragrance or enter a new fragrance name.");
+      }
+
+      if (macerationDays > 0) {
+        const startDate = new Date();
+        const endDate = new Date();
+        endDate.setDate(endDate.getDate() + macerationDays);
+
+        await tx.macerationBatch.create({
+          data: {
+            raw_material_id: targetMaterial.id,
+            volume_ml: totalMl,
+            batch_quantity: 0,
+            start_date: startDate,
+            end_date: endDate,
+            status: "MACERATING",
+            notes: data.notes || `Bulk fragrance blend: ${totalMl}ml (${concentration}% conc: ${oilNeeded.toFixed(1)}ml oil + ${ethanolNeeded.toFixed(1)}ml ethanol). Maceration: ${macerationDays} days.`,
+          },
+        });
+      } else {
+        // No maceration - directly increment stock and update weighted avg cost
+        const currentStock = targetMaterial.current_stock || 0;
+        const currentCost = targetMaterial.cost_per_unit || 0;
+        const newTotalStock = currentStock + totalMl;
+        const weightedCost = newTotalStock > 0 ? (currentStock * currentCost + totalMl * costPerMl) / newTotalStock : costPerMl;
+
+        targetMaterial = await tx.rawMaterial.update({
+          where: { id: targetMaterial.id },
+          data: {
+            current_stock: { increment: totalMl },
+            cost_per_unit: Math.round(weightedCost * 100) / 100,
+          },
+        });
+      }
+
+      const batchLog = await tx.batchProduction.create({
+        data: {
+          raw_material_id: targetMaterial.id,
+          volume_ml: totalMl,
+          batch_quantity: 0,
+          notes: data.notes || `Bulk fragrance blend: ${totalMl}ml (${concentration}% conc: ${oilNeeded.toFixed(1)}ml oil + ${ethanolNeeded.toFixed(1)}ml ethanol) → "${targetMaterial.name}"${macerationDays > 0 ? `. Maceration: ${macerationDays} days` : " (ready immediately)"}`,
+        },
+      });
+
+      return {
+        batchLog,
+        targetMaterial,
+        totalMl,
+        oilNeeded,
+        ethanolNeeded,
+        costPerMl,
+        macerationDays,
+      };
+    });
+
+    safeRevalidate("/raw-materials");
+    safeRevalidate("/batch-production");
+    safeRevalidate("/batch-production-v2");
+    safeRevalidate("/maceration");
+    safeRevalidate("/");
+    return { success: true, result };
+  } catch (error: any) {
+    console.error("Error blending bulk fragrance:", error);
+    return { success: false, error: error?.message || "Failed to blend bulk fragrance" };
+  }
+}
+
+export async function bottleProductFromFragrance(data: {
+  product_id: string;
+  fragrance_material_id: string;
+  bottle_count: number;
+  bottle_material_id?: string;
+  cap_material_id?: string;
+  box_material_id?: string;
+  sticker_material_id?: string;
+  save_as_recipe?: boolean;
+  notes?: string;
+}) {
+  try {
+    const bottleCount = Math.max(1, Math.floor(Number(data.bottle_count) || 1));
+
+    const result = await prisma.$transaction(async (tx) => {
+      const product = await tx.product.findUnique({ where: { id: data.product_id } });
+      if (!product) throw new Error("Product not found");
+
+      const fragranceMaterial = await tx.rawMaterial.findUnique({ where: { id: data.fragrance_material_id } });
+      if (!fragranceMaterial) throw new Error("Prepared fragrance liquid not found");
+
+      const bottleSizeMl = product.perfume_quantity_ml;
+      const totalFragranceMl = bottleCount * bottleSizeMl;
+
+      if (fragranceMaterial.current_stock < totalFragranceMl) {
+        throw new Error(`Insufficient ${fragranceMaterial.name}! Need ${totalFragranceMl} ml, but only ${fragranceMaterial.current_stock} ml available.`);
+      }
+
+      await tx.rawMaterial.update({
+        where: { id: data.fragrance_material_id },
+        data: { current_stock: { decrement: totalFragranceMl } },
+      });
+
+      let packagingUnitCost = 0;
+      const packagingItems = [
+        { id: data.bottle_material_id, type: "Bottle" },
+        { id: data.cap_material_id, type: "Cap / Atomizer" },
+        { id: data.box_material_id, type: "Box" },
+        { id: data.sticker_material_id, type: "Sticker" },
+      ].filter((p) => Boolean(p.id)) as { id: string; type: string }[];
+
+      for (const item of packagingItems) {
+        const mat = await tx.rawMaterial.findUnique({ where: { id: item.id } });
+        if (!mat) throw new Error(`${item.type} material not found`);
+        if (mat.current_stock < bottleCount) {
+          throw new Error(`Insufficient ${mat.name}! Need ${bottleCount} pcs, but only ${mat.current_stock} pcs available.`);
+        }
+        packagingUnitCost += mat.cost_per_unit || 0;
+        await tx.rawMaterial.update({
+          where: { id: item.id },
+          data: { current_stock: { decrement: bottleCount } },
+        });
+      }
+
+      const fragranceUnitCost = bottleSizeMl * (fragranceMaterial.cost_per_unit || 0);
+      const makingCostPerBottle = Math.round((fragranceUnitCost + packagingUnitCost) * 100) / 100;
+
+      const updatedProduct = await tx.product.update({
+        where: { id: product.id },
+        data: {
+          stock: { increment: bottleCount },
+          making_cost: makingCostPerBottle > 0 ? makingCostPerBottle : product.making_cost,
+        },
+      });
+
+      if (data.save_as_recipe) {
+        await tx.batchRecipeItem.deleteMany({ where: { product_id: product.id } });
+        const recipeData = [
+          { product_id: product.id, raw_material_id: fragranceMaterial.id, quantity_required_per_unit: bottleSizeMl },
+          ...packagingItems.map((p) => ({
+            product_id: product.id,
+            raw_material_id: p.id,
+            quantity_required_per_unit: 1,
+          })),
+        ];
+        await tx.batchRecipeItem.createMany({ data: recipeData });
+      }
+
+      const batchLog = await tx.batchProduction.create({
+        data: {
+          product_id: product.id,
+          batch_quantity: bottleCount,
+          notes: data.notes || `Bottled ${bottleCount} bottle(s) of "${product.name}" using ${totalFragranceMl}ml of "${fragranceMaterial.name}"`,
+        },
+      });
+
+      return {
+        batchLog,
+        product: updatedProduct,
+        bottleCount,
+        totalFragranceMl,
+        makingCostPerBottle,
+      };
+    });
+
+    safeRevalidate("/products");
+    safeRevalidate("/raw-materials");
+    safeRevalidate("/batch-production");
+    safeRevalidate("/batch-production-v2");
+    safeRevalidate("/");
+    return { success: true, result };
+  } catch (error: any) {
+    console.error("Error bottling product from fragrance:", error);
+    return { success: false, error: error?.message || "Failed to bottle product" };
+  }
+}
+
 // ==========================================
 // DASHBOARD METRICS ACTION
 // ==========================================
@@ -1084,7 +1395,7 @@ export async function getDashboardMetrics() {
           status: "MACERATING",
           end_date: { lte: new Date() },
         },
-        include: { product: true },
+        include: { product: true, raw_material: true },
         orderBy: { end_date: "asc" },
       }),
     ]);
@@ -1239,7 +1550,7 @@ export async function getMacerationBatches(status?: MacerationStatus) {
 
     return await prisma.macerationBatch.findMany({
       where,
-      include: { product: true },
+      include: { product: true, raw_material: true },
       orderBy: { created_at: "desc" },
     });
   } catch (error) {
@@ -1249,14 +1560,17 @@ export async function getMacerationBatches(status?: MacerationStatus) {
 }
 
 export async function createMacerationBatch(data: {
-  product_id: string;
-  batch_quantity: number;
+  product_id?: string;
+  raw_material_id?: string;
+  batch_quantity?: number;
+  volume_ml?: number;
   start_date: string;
   end_date: string;
   notes?: string;
 }) {
   try {
-    const batchQty = Number(data.batch_quantity);
+    const batchQty = Number(data.batch_quantity || 0);
+    const volumeMl = Number(data.volume_ml || 0);
     const startDate = new Date(data.start_date);
     const endDate = new Date(data.end_date);
 
@@ -1265,19 +1579,27 @@ export async function createMacerationBatch(data: {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      const product = await tx.product.findUnique({ where: { id: data.product_id } });
-      if (!product) throw new Error("Product not found");
+      if (data.product_id) {
+        const product = await tx.product.findUnique({ where: { id: data.product_id } });
+        if (!product) throw new Error("Product not found");
+      }
+      if (data.raw_material_id) {
+        const rawMat = await tx.rawMaterial.findUnique({ where: { id: data.raw_material_id } });
+        if (!rawMat) throw new Error("Raw material not found");
+      }
 
       const macerationBatch = await tx.macerationBatch.create({
         data: {
-          product_id: data.product_id,
+          product_id: data.product_id || null,
+          raw_material_id: data.raw_material_id || null,
           batch_quantity: batchQty,
+          volume_ml: volumeMl > 0 ? volumeMl : null,
           start_date: startDate,
           end_date: endDate,
           status: "MACERATING",
           notes: data.notes || null,
         },
-        include: { product: true },
+        include: { product: true, raw_material: true },
       });
 
       return macerationBatch;
@@ -1297,7 +1619,7 @@ export async function addMacerationToStock(id: string) {
     const result = await prisma.$transaction(async (tx) => {
       const maceration = await tx.macerationBatch.findUnique({
         where: { id },
-        include: { product: true },
+        include: { product: true, raw_material: true },
       });
 
       if (!maceration) throw new Error("Maceration batch not found");
@@ -1305,15 +1627,23 @@ export async function addMacerationToStock(id: string) {
         throw new Error("This maceration batch is not in MACERATING status");
       }
 
-      await tx.product.update({
-        where: { id: maceration.product_id },
-        data: { stock: { increment: maceration.batch_quantity } },
-      });
+      if (maceration.raw_material_id) {
+        const volumeMl = maceration.volume_ml || 0;
+        await tx.rawMaterial.update({
+          where: { id: maceration.raw_material_id },
+          data: { current_stock: { increment: volumeMl } },
+        });
+      } else if (maceration.product_id) {
+        await tx.product.update({
+          where: { id: maceration.product_id },
+          data: { stock: { increment: maceration.batch_quantity } },
+        });
+      }
 
       const updatedMaceration = await tx.macerationBatch.update({
         where: { id },
         data: { status: "ADDED_TO_STOCK" },
-        include: { product: true },
+        include: { product: true, raw_material: true },
       });
 
       return updatedMaceration;
@@ -1321,6 +1651,7 @@ export async function addMacerationToStock(id: string) {
 
     safeRevalidate("/maceration");
     safeRevalidate("/products");
+    safeRevalidate("/raw-materials");
     safeRevalidate("/");
     return { success: true, maceration: result };
   } catch (error: any) {
@@ -1347,7 +1678,7 @@ export async function extendMaceration(id: string, newEndDate: string) {
       const updatedMaceration = await tx.macerationBatch.update({
         where: { id },
         data: { end_date: endDate },
-        include: { product: true },
+        include: { product: true, raw_material: true },
       });
 
       return updatedMaceration;
@@ -1369,7 +1700,7 @@ export async function getCompletedMacerations() {
         status: "MACERATING",
         end_date: { lte: new Date() },
       },
-      include: { product: true },
+      include: { product: true, raw_material: true },
       orderBy: { end_date: "asc" },
     });
   } catch (error) {

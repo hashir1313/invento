@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { 
   getSales, 
   getProducts, 
+  getRawMaterials,
   createSale, 
   updateSale, 
   updateSalePaymentStatus, 
@@ -27,7 +28,9 @@ import {
   Search, 
   Sparkles, 
   DollarSign,
-  Trash2
+  Trash2,
+  Package,
+  AlertTriangle
 } from "lucide-react";
 import { PaymentStatus, PaymentOption } from "@prisma/client";
 
@@ -48,9 +51,12 @@ export interface FormItem {
 export default function SalesPage() {
   const [sales, setSales] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [rawMaterials, setRawMaterials] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [isAutoBottleModalOpen, setIsAutoBottleModalOpen] = useState(false);
+  const [autoBottlePlans, setAutoBottlePlans] = useState<any[]>([]);
   const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -80,12 +86,14 @@ export default function SalesPage() {
 
   async function loadData() {
     setLoading(true);
-    const [salesData, productsData] = await Promise.all([
+    const [salesData, productsData, rawMaterialsData] = await Promise.all([
       getSales("ALL", "ALL"),
       getProducts(),
+      getRawMaterials(),
     ]);
     setSales(salesData);
     setProducts(productsData);
+    setRawMaterials(rawMaterialsData);
     setLoading(false);
   }
 
@@ -342,6 +350,15 @@ export default function SalesPage() {
     setIsModalOpen(true);
   }
 
+  const preparedFragrances = useMemo(
+    () => rawMaterials.filter((m) => m.category === "PREPARED_FRAGRANCE"),
+    [rawMaterials]
+  );
+  const bottles = useMemo(() => rawMaterials.filter((m) => m.category === "BOTTLE"), [rawMaterials]);
+  const caps = useMemo(() => rawMaterials.filter((m) => m.category === "CAP_SPRAY"), [rawMaterials]);
+  const boxes = useMemo(() => rawMaterials.filter((m) => m.category === "BOX"), [rawMaterials]);
+  const stickers = useMemo(() => rawMaterials.filter((m) => m.category === "STICKER"), [rawMaterials]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!customerName.trim() || items.length === 0) return;
@@ -349,6 +366,50 @@ export default function SalesPage() {
     for (const it of items) {
       if (!it.productId) {
         alert("Please ensure all items have a perfume selected.");
+        return;
+      }
+    }
+
+    // Check for stock shortfalls when creating a new sale
+    if (!editingSaleId) {
+      const prodMap = new Map(products.map((p) => [p.id, p]));
+      const requestedMap: Record<string, number> = {};
+      for (const it of items) {
+        requestedMap[it.productId] = (requestedMap[it.productId] || 0) + Number(it.quantity || 1);
+      }
+
+      const shortfalls: any[] = [];
+      for (const [pId, reqQty] of Object.entries(requestedMap)) {
+        const prod = prodMap.get(pId);
+        const currentStock = prod ? prod.stock : 0;
+        if (currentStock < reqQty) {
+          const countNeeded = reqQty - currentStock;
+          const bestFrag =
+            preparedFragrances.find((m) => m.name.toLowerCase().includes(prod?.name.toLowerCase() || "")) ||
+            preparedFragrances[0];
+
+          shortfalls.push({
+            product_id: pId,
+            productName: prod?.name || "Perfume",
+            bottleSizeMl: prod?.perfume_quantity_ml || 50,
+            bottle_count: countNeeded,
+            fragrance_material_id: bestFrag?.id || "",
+            bottle_material_id: bottles[0]?.id || "",
+            cap_material_id: caps[0]?.id || "",
+            box_material_id: boxes[0]?.id || "",
+            sticker_material_id: stickers[0]?.id || "",
+          });
+        }
+      }
+
+      if (shortfalls.length > 0) {
+        if (preparedFragrances.length === 0) {
+          alert("Insufficient bottled stock, and no prepared fragrance blends are available to auto-bottle on demand.");
+          return;
+        }
+
+        setAutoBottlePlans(shortfalls);
+        setIsAutoBottleModalOpen(true);
         return;
       }
     }
@@ -383,6 +444,52 @@ export default function SalesPage() {
       loadData();
     } else {
       alert(res.error || "Failed to save sale");
+    }
+  }
+
+  async function handleConfirmAutoBottle() {
+    setSubmitting(true);
+    for (const plan of autoBottlePlans) {
+      if (!plan.fragrance_material_id) {
+        alert(`Please select a prepared fragrance blend for "${plan.productName}".`);
+        setSubmitting(false);
+        return;
+      }
+    }
+
+    const payload = {
+      customer_name: customerName.trim(),
+      date_purchased: datePurchased,
+      items: items.map((it) => ({
+        product_id: it.productId,
+        quantity: Number(it.quantity),
+        unit_price: Number(it.unitPrice),
+      })),
+      payment_status: paymentStatus,
+      payment_option: paymentOption,
+      review_given: reviewGiven,
+      notes: notes.trim() || undefined,
+      auto_bottle: autoBottlePlans.map((p) => ({
+        product_id: p.product_id,
+        bottle_count: p.bottle_count,
+        fragrance_material_id: p.fragrance_material_id,
+        bottle_material_id: p.bottle_material_id || undefined,
+        cap_material_id: p.cap_material_id || undefined,
+        box_material_id: p.box_material_id || undefined,
+        sticker_material_id: p.sticker_material_id || undefined,
+      })),
+    };
+
+    const res = await createSale(payload);
+    setSubmitting(false);
+
+    if (res.success) {
+      setIsAutoBottleModalOpen(false);
+      setIsModalOpen(false);
+      resetForm();
+      loadData();
+    } else {
+      alert(res.error || "Failed to auto-bottle and complete sale");
     }
   }
 
@@ -1154,9 +1261,25 @@ export default function SalesPage() {
                                 ))}
                               </select>
                               {selectedProd && (
-                                <p className="text-[11px] text-mute mt-1">
-                                  Stock: <span className={selectedProd.stock <= 5 ? "text-error font-medium" : "text-ink font-medium"}>{selectedProd.stock} available</span>
-                                </p>
+                                <div className="flex items-center justify-between text-[11px] mt-1">
+                                  <span className="text-mute">
+                                    Bottled Stock:{" "}
+                                    <span
+                                      className={
+                                        selectedProd.stock < item.quantity
+                                          ? "text-error font-medium"
+                                          : "text-ink font-medium"
+                                      }
+                                    >
+                                      {selectedProd.stock} available
+                                    </span>
+                                  </span>
+                                  {selectedProd.stock < item.quantity && preparedFragrances.length > 0 && (
+                                    <span className="badge badge-warning text-[10px] py-0.5">
+                                      Materials ready • Auto-bottles on save
+                                    </span>
+                                  )}
+                                </div>
                               )}
                             </div>
 
@@ -1285,6 +1408,184 @@ export default function SalesPage() {
                 </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Auto-Bottling On-the-Spot Confirmation Modal */}
+      {isAutoBottleModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-panel w-full max-w-xl p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-hairline pb-4">
+              <div className="flex items-center gap-2">
+                <Package className="w-5 h-5 text-warning" />
+                <h3 className="text-h3">Auto-Produce & Bottle on Spot</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAutoBottleModalOpen(false)}
+                className="btn btn-sm btn-secondary"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="card p-3.5 bg-warning/5 border-warning/30 flex items-start gap-3">
+              <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
+              <p className="text-xs text-body">
+                The bottled stock is currently 0 (or lower than ordered), but prepared fragrance liquid and packaging items were detected. Confirm below to bottle on the spot (0 maceration) and complete the sale!
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {autoBottlePlans.map((plan, idx) => {
+                const totalLiquidMl = plan.bottle_count * plan.bottleSizeMl;
+                const selectedFrag = preparedFragrances.find((m) => m.id === plan.fragrance_material_id);
+                const hasEnoughLiquid = selectedFrag && selectedFrag.current_stock >= totalLiquidMl;
+
+                return (
+                  <div key={plan.product_id} className="card p-4 space-y-3 border-hairline">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-ink text-sm">
+                        {plan.productName} ({plan.bottleSizeMl}ml)
+                      </span>
+                      <span className="badge badge-primary font-bold">
+                        Bottle +{plan.bottle_count} pcs
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 text-xs">
+                      <div>
+                        <label className="field-label">Prepared Fragrance Blend *</label>
+                        <select
+                          value={plan.fragrance_material_id}
+                          onChange={(e) => {
+                            const updated = [...autoBottlePlans];
+                            updated[idx].fragrance_material_id = e.target.value;
+                            setAutoBottlePlans(updated);
+                          }}
+                          className="input text-xs"
+                        >
+                          {preparedFragrances.map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.name} ({m.current_stock} ml available • {formatPKR(m.cost_per_unit)}/ml)
+                            </option>
+                          ))}
+                        </select>
+                        <p
+                          className={`text-[11px] mt-1 ${
+                            hasEnoughLiquid ? "text-mute" : "text-error font-medium"
+                          }`}
+                        >
+                          Requires {totalLiquidMl} ml • Available: {selectedFrag?.current_stock || 0} ml
+                          {!hasEnoughLiquid && " (Insufficient fragrance liquid!)"}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <div>
+                          <label className="field-label">Glass Bottle</label>
+                          <select
+                            value={plan.bottle_material_id || ""}
+                            onChange={(e) => {
+                              const updated = [...autoBottlePlans];
+                              updated[idx].bottle_material_id = e.target.value;
+                              setAutoBottlePlans(updated);
+                            }}
+                            className="input text-xs"
+                          >
+                            <option value="">— None —</option>
+                            {bottles.map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.name} ({m.current_stock} pcs)
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="field-label">Cap / Atomizer</label>
+                          <select
+                            value={plan.cap_material_id || ""}
+                            onChange={(e) => {
+                              const updated = [...autoBottlePlans];
+                              updated[idx].cap_material_id = e.target.value;
+                              setAutoBottlePlans(updated);
+                            }}
+                            className="input text-xs"
+                          >
+                            <option value="">— None —</option>
+                            {caps.map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.name} ({m.current_stock} pcs)
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="field-label">Packaging Box</label>
+                          <select
+                            value={plan.box_material_id || ""}
+                            onChange={(e) => {
+                              const updated = [...autoBottlePlans];
+                              updated[idx].box_material_id = e.target.value;
+                              setAutoBottlePlans(updated);
+                            }}
+                            className="input text-xs"
+                          >
+                            <option value="">— None —</option>
+                            {boxes.map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.name} ({m.current_stock} pcs)
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="field-label">Sticker</label>
+                          <select
+                            value={plan.sticker_material_id || ""}
+                            onChange={(e) => {
+                              const updated = [...autoBottlePlans];
+                              updated[idx].sticker_material_id = e.target.value;
+                              setAutoBottlePlans(updated);
+                            }}
+                            className="input text-xs"
+                          >
+                            <option value="">— None —</option>
+                            {stickers.map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.name} ({m.current_stock} pcs)
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-hairline">
+              <button
+                type="button"
+                onClick={() => setIsAutoBottleModalOpen(false)}
+                className="btn btn-secondary"
+              >
+                Back to Edit
+              </button>
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={handleConfirmAutoBottle}
+                className="btn btn-primary"
+              >
+                {submitting ? "Bottling & Saving..." : "Assemble, Bottle & Complete Sale"}
+              </button>
+            </div>
           </div>
         </div>
       )}

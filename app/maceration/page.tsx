@@ -322,8 +322,11 @@ export default function MacerationPage() {
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
                                 <p className="font-semibold text-ink text-sm">
-                                  {maceration.product?.name}
+                                  {maceration.product?.name || maceration.raw_material?.name}
                                 </p>
+                                {maceration.raw_material && (
+                                  <span className="badge badge-neutral text-[10px]">BULK LIQUID</span>
+                                )}
                                 {isReady && (
                                   <span className="badge badge-warning">READY</span>
                                 )}
@@ -331,7 +334,9 @@ export default function MacerationPage() {
                               <div className="flex items-center gap-4 mt-2 text-xs text-mute">
                                 <span className="flex items-center gap-1">
                                   <Package className="w-3 h-3" />
-                                  {maceration.batch_quantity} bottle{maceration.batch_quantity !== 1 ? "s" : ""}
+                                  {maceration.raw_material
+                                    ? `${maceration.volume_ml || 0} ml`
+                                    : `${maceration.batch_quantity} bottle${maceration.batch_quantity !== 1 ? "s" : ""}`}
                                 </span>
                                 <span className="flex items-center gap-1">
                                   <Calendar className="w-3 h-3" />
@@ -402,10 +407,15 @@ export default function MacerationPage() {
                         {completedMacerations.map((maceration) => (
                           <tr key={maceration.id}>
                             <td className="font-medium">
-                              {maceration.product?.name}
+                              {maceration.product?.name || maceration.raw_material?.name}
+                              {maceration.raw_material && (
+                                <span className="ml-1.5 badge badge-neutral text-[10px]">BULK</span>
+                              )}
                             </td>
                             <td className="font-medium tabular-nums">
-                              {maceration.batch_quantity}
+                              {maceration.raw_material
+                                ? `${maceration.volume_ml || 0} ml`
+                                : `${maceration.batch_quantity} pcs`}
                             </td>
                             <td className="text-mute text-xs">
                               {formatDate(maceration.start_date)} — {formatDate(maceration.end_date)}

@@ -148,3 +148,86 @@ export function validateSaleStockRequirements(
 
   return productQuantities;
 }
+
+/** Calculates oil and ethanol requirements and cost per ml for bulk fragrance blending. */
+export function calculateBulkFragrancePlan(params: {
+  totalMl: number;
+  concentrationPct: number;
+  oilCostPerUnit?: number;
+  ethanolCostPerUnit?: number;
+}): {
+  totalMl: number;
+  oilNeeded: number;
+  ethanolNeeded: number;
+  costPerMl: number;
+} {
+  const totalMl = Number(params.totalMl);
+  const concentration = Number(params.concentrationPct) / 100;
+  const oilCost = Number(params.oilCostPerUnit || 0);
+  const ethanolCost = Number(params.ethanolCostPerUnit || 0);
+
+  if (!Number.isFinite(totalMl) || totalMl <= 0) {
+    throw new Error("Fragrance batch volume must be greater than zero.");
+  }
+  if (!Number.isFinite(concentration) || concentration < 0 || concentration > 1) {
+    throw new Error("Concentration percentage must be between 0 and 100.");
+  }
+
+  const oilNeeded = totalMl * concentration;
+  const ethanolNeeded = totalMl - oilNeeded;
+  const totalCost = oilNeeded * oilCost + ethanolNeeded * ethanolCost;
+  const costPerMl = totalMl > 0 ? totalCost / totalMl : 0;
+
+  return { totalMl, oilNeeded, ethanolNeeded, costPerMl };
+}
+
+/** Calculates material requirements and unit making cost for bottling finished products. */
+export function calculateBottlingPlan(params: {
+  bottleCount: number;
+  bottleSizeMl: number;
+  fragranceCostPerMl: number;
+  packagingUnitCosts?: {
+    bottle?: number;
+    cap?: number;
+    box?: number;
+    sticker?: number;
+    card?: number;
+  };
+}): {
+  bottleCount: number;
+  fragranceMlNeeded: number;
+  fragranceCostPerBottle: number;
+  packagingCostPerBottle: number;
+  makingCostPerBottle: number;
+  totalBatchCost: number;
+} {
+  const bottleCount = Math.max(1, Math.floor(Number(params.bottleCount) || 1));
+  const bottleSizeMl = Number(params.bottleSizeMl);
+  const fragranceCostPerMl = Math.max(0, Number(params.fragranceCostPerMl) || 0);
+  const pkg = params.packagingUnitCosts || {};
+
+  if (!Number.isFinite(bottleSizeMl) || bottleSizeMl <= 0) {
+    throw new Error("Product bottle volume must be greater than zero.");
+  }
+
+  const fragranceMlNeeded = bottleCount * bottleSizeMl;
+  const fragranceCostPerBottle = bottleSizeMl * fragranceCostPerMl;
+  const packagingCostPerBottle =
+    (Number(pkg.bottle) || 0) +
+    (Number(pkg.cap) || 0) +
+    (Number(pkg.box) || 0) +
+    (Number(pkg.sticker) || 0) +
+    (Number(pkg.card) || 0);
+
+  const makingCostPerBottle = fragranceCostPerBottle + packagingCostPerBottle;
+  const totalBatchCost = makingCostPerBottle * bottleCount;
+
+  return {
+    bottleCount,
+    fragranceMlNeeded,
+    fragranceCostPerBottle,
+    packagingCostPerBottle,
+    makingCostPerBottle,
+    totalBatchCost,
+  };
+}

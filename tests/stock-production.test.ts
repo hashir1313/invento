@@ -1,5 +1,78 @@
 import { describe, expect, test } from "bun:test";
-import { calculateBatchV2Plan, validateSaleStockRequirements } from "@/lib/domain-math";
+import { 
+  calculateBatchV2Plan, 
+  calculateBulkFragrancePlan,
+  calculateBottlingPlan,
+  validateSaleStockRequirements 
+} from "@/lib/domain-math";
+
+describe("Bulk Fragrance Compounding calculations", () => {
+  test("calculates oil, ethanol requirements and weighted unit cost per ml", () => {
+    const plan = calculateBulkFragrancePlan({
+      totalMl: 1000,
+      concentrationPct: 30,
+      oilCostPerUnit: 20, // Rs. 20/g
+      ethanolCostPerUnit: 1.5, // Rs. 1.5/ml
+    });
+
+    expect(plan.totalMl).toBe(1000);
+    expect(plan.oilNeeded).toBe(300);
+    expect(plan.ethanolNeeded).toBe(700);
+    // (300 * 20 + 700 * 1.5) / 1000 = (6000 + 1050) / 1000 = 7.05
+    expect(plan.costPerMl).toBeCloseTo(7.05, 4);
+  });
+
+  test("rejects invalid volume or concentration", () => {
+    expect(() =>
+      calculateBulkFragrancePlan({
+        totalMl: 0,
+        concentrationPct: 25,
+      })
+    ).toThrow();
+
+    expect(() =>
+      calculateBulkFragrancePlan({
+        totalMl: 500,
+        concentrationPct: -5,
+      })
+    ).toThrow();
+  });
+});
+
+describe("Bottling & Packaging Assembly calculations", () => {
+  test("calculates fragrance ml needed and unit making cost breakdown", () => {
+    const plan = calculateBottlingPlan({
+      bottleCount: 10,
+      bottleSizeMl: 50,
+      fragranceCostPerMl: 8,
+      packagingUnitCosts: {
+        bottle: 120,
+        cap: 35,
+        box: 45,
+        sticker: 15,
+      },
+    });
+
+    expect(plan.bottleCount).toBe(10);
+    expect(plan.fragranceMlNeeded).toBe(500); // 10 * 50ml
+    expect(plan.fragranceCostPerBottle).toBe(400); // 50 * 8
+    expect(plan.packagingCostPerBottle).toBe(215); // 120 + 35 + 45 + 15
+    expect(plan.makingCostPerBottle).toBe(615); // 400 + 215
+    expect(plan.totalBatchCost).toBe(6150); // 615 * 10
+  });
+
+  test("handles zero or missing packaging items cleanly", () => {
+    const plan = calculateBottlingPlan({
+      bottleCount: 2,
+      bottleSizeMl: 100,
+      fragranceCostPerMl: 5,
+    });
+
+    expect(plan.fragranceMlNeeded).toBe(200);
+    expect(plan.makingCostPerBottle).toBe(500); // 100 * 5
+    expect(plan.totalBatchCost).toBe(1000);
+  });
+});
 
 describe("Batch Production V2 calculations", () => {
   test("calculates bottle mode oil, ethanol, and total volume accurately", () => {

@@ -162,6 +162,7 @@ export default function RawMaterialsPage() {
     { value: "ALL", label: "All Materials" },
     { value: "OIL", label: "Fragrance Oil" },
     { value: "SOLVENT", label: "Solvent / Ethanol" },
+    { value: "PREPARED_FRAGRANCE", label: "Prepared Fragrance" },
     { value: "BOTTLE", label: "Glass Bottle" },
     { value: "CAP_SPRAY", label: "Spray / Cap" },
     { value: "STICKER", label: "Sticker" },
@@ -391,11 +392,18 @@ export default function RawMaterialsPage() {
                   </label>
                   <select
                     value={category}
-                    onChange={(e) => setCategory(e.target.value as MaterialCategory)}
+                    onChange={(e) => {
+                      const newCat = e.target.value as MaterialCategory;
+                      setCategory(newCat);
+                      if (newCat === "PREPARED_FRAGRANCE") {
+                        setUnitOfMeasure("ML");
+                      }
+                    }}
                     className="input"
                   >
                     <option value="OIL">Fragrance Oil</option>
                     <option value="SOLVENT">Solvent / Ethanol</option>
+                    <option value="PREPARED_FRAGRANCE">Prepared Fragrance (ml)</option>
                     <option value="BOTTLE">Glass Bottle</option>
                     <option value="CAP_SPRAY">Spray Atomizer / Cap</option>
                     <option value="STICKER">Sticker / Label</option>

@@ -148,27 +148,46 @@ sequenceDiagram
     DB-->>UI: UI revalidates stock indicator and banking ledger
 ```
 
-### E. Batch Production (V2) + Maceration Flow
+### E. Two-Stage Batch Production & Maceration Flow
 ```mermaid
 sequenceDiagram
     autonumber
     actor Owner as Business Owner
     participant UI as Production Page (Client)
-    participant Action as produceBatchV2() Server Action
+    participant Action as Actions (blendBulkFragrance / bottleProductFromFragrance)
     participant DB as Neon DB
 
-    Owner->>UI: Chooses bottle/mass mode, quantity, concentration, materials, maceration days
-    UI->>UI: Live-calculates oil (g) & ethanol (ml); blocks if any material is short
-    UI->>Action: Submits production payload
-    Action->>DB: Transaction — verify & deduct oil/ethanol (+ optional bottle/box/sticker)
-    alt Maceration days > 0
-        Action->>DB: Create MacerationBatch (MACERATING) — stock NOT incremented
-    else No maceration
-        Action->>DB: Increment Product.stock directly
+    alt Stage 1: Compounding Fragrance Liquid (Bulk)
+        Owner->>UI: Selects oil, ethanol, volume (ml), concentration (%), target prepared fragrance, maceration days
+        UI->>Action: blendBulkFragrance()
+        Action->>DB: Transaction — deduct oil & ethanol stock
+        alt Maceration days > 0
+            Action->>DB: Create MacerationBatch (MACERATING) on RawMaterial
+        else No maceration (0 days)
+            Action->>DB: Increment Prepared Fragrance current_stock (ml) & update weighted cost/ml
+        end
+        Action->>DB: Write BatchProduction log
+    else Stage 2: Bottling & Packaging Assembly
+        Owner->>UI: Selects product, prepared fragrance, bottle/cap/box/sticker, bottle count
+        UI->>Action: bottleProductFromFragrance()
+        Action->>DB: Transaction — deduct fragrance liquid (ml) & packaging pieces
+        Action->>DB: Increment Product.stock by bottle count & update Product.making_cost
+        Action->>DB: Write BatchProduction log
     end
-    Action->>DB: Write BatchProduction log
     DB-->>UI: Revalidate /products, /raw-materials, /maceration, /
 ```
+
+### F. Hybrid On-The-Spot Auto-Bottling on Sale
+When creating a customer sale in `/sales`:
+1. If finished product stock is sufficient, the sale deducts bottles from `Product.stock` as usual.
+2. If `Product.stock < requestedQty`, the system checks whether matching `PREPARED_FRAGRANCE` bulk liquid and packaging items (bottles, caps, boxes, stickers) are available.
+3. An auto-bottling confirmation modal prompts the user to assemble the shortfall on the spot (with 0 maceration).
+4. Inside the atomic Prisma `$transaction`:
+   - Prepared fragrance bulk liquid is deducted in milliliters.
+   - Packaging items are deducted in pieces.
+   - `Product.stock` is incremented and `making_cost` refreshed.
+   - A `BatchProduction` log is recorded.
+   - The sale immediately consumes the fresh stock and records `SaleItem`s and double-entry ledger entries.
 
 Releasing an aged batch (`addMacerationToStock`) increments `Product.stock` and flips the batch to `ADDED_TO_STOCK`; `extendMaceration` pushes the end date out instead.
 

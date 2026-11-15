@@ -3,18 +3,21 @@
 import { useState } from "react";
 import { addMacerationToStock, extendMaceration } from "@/app/actions";
 import { formatDate } from "@/lib/utils";
-import { CheckCircle2, ArrowRight, Clock, ChevronRight } from "lucide-react";
+import { CheckCircle2, Clock } from "lucide-react";
 import CalendarDatePicker from "./CalendarDatePicker";
 
 interface MacerationEntry {
   id: string;
-  product_id: string;
+  product_id?: string | null;
+  raw_material_id?: string | null;
   batch_quantity: number;
+  volume_ml?: number | null;
   start_date: Date | string;
   end_date: Date | string;
   status: string;
   notes: string | null;
-  product: { name: string; perfume_quantity_ml: number };
+  product?: { name: string; perfume_quantity_ml: number } | null;
+  raw_material?: { name: string } | null;
 }
 
 export default function MacerationAlertCards({ items }: { items: MacerationEntry[] }) {
@@ -74,12 +77,16 @@ export default function MacerationAlertCards({ items }: { items: MacerationEntry
           <div key={m.id} className="card-sm flex flex-col gap-3">
             <div>
               <div className="flex items-start justify-between gap-2">
-                <p className="text-sm font-medium text-ink">{m.product?.name}</p>
+                <p className="text-sm font-medium text-ink">
+                  {m.product?.name || m.raw_material?.name || "Maceration Batch"}
+                </p>
                 <span className="badge badge-warning shrink-0">Complete</span>
               </div>
               <p className="text-xs text-mute mt-0.5">
-                {m.batch_quantity} bottle{m.batch_quantity !== 1 ? "s" : ""} — Ended{" "}
-                {formatDate(m.end_date)}
+                {m.raw_material
+                  ? `${m.volume_ml || 0} ml bulk liquid`
+                  : `${m.batch_quantity} bottle${m.batch_quantity !== 1 ? "s" : ""}`}{" "}
+                — Ended {formatDate(m.end_date)}
               </p>
             </div>
             <div className="flex gap-2">
