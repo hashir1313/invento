@@ -232,7 +232,7 @@ sequenceDiagram
 | **Capital & Drawings** | `recordCapitalContribution`, `recordProfitWithdrawal` |
 | **Operating Costs** | `recordExpense` (with `ExpenseCategory` support) |
 | **Financing & Debt** | `recordLoanDisbursement`, `recordLoanRepayment` |
-| **Reporting & Ledger** | `getBankMetrics` (supports month/year and `isAllTime`), `getLedger` (paginated audit log), `getCurrentPKTYearMonth` |
+| **Reporting & Ledger** | `getBankMetrics` (supports month/year and `isAllTime`), `getBusinessCash`, `getLedger` (paginated audit log), `getCurrentPKTYearMonth` |
 
 Transaction-backed (stock & ledger safe) actions: `createSale`, `updateSale`, `updateSalePaymentStatus`, `deleteSale`, `restockRawMaterial`, `produceBatch`, `produceBatchV2`, `createMacerationBatch`, `addMacerationToStock`, `extendMaceration`, `saveRecipe`, `recordCapitalContribution`, `recordExpense`, `recordProfitWithdrawal`, `recordLoanDisbursement`, `recordLoanRepayment`.
 

@@ -1,0 +1,364 @@
+From 5fd46f1bf554b482490195ec2f837f9a5f2a748c Mon Sep 17 00:00:00 2001
+From: Nod <nod@nod.local>
+Date: Wed, 18 Nov 2026 14:21:53 +0500
+Subject: [PATCH 1/2] fix(db): increase interactive transaction timeout and
+ batch account queries
+
+---
+ app/actions.ts      | 24 ++++++++++++------------
+ app/bank-actions.ts | 40 +++++++++++++++++++++++++---------------
+ lib/prisma.ts       |  5 +++++
+ 3 files changed, 42 insertions(+), 27 deletions(-)
+
+diff --git a/app/actions.ts b/app/actions.ts
+index 050311b..23cbc58 100644
+--- a/app/actions.ts
++++ b/app/actions.ts
+@@ -1,6 +1,6 @@
+ "use server";
+ 
+-import { prisma } from "@/lib/prisma";
++import { prisma, TRANSACTION_OPTIONS } from "@/lib/prisma";
+ import { revalidatePath } from "next/cache";
+ import { 
+   PaymentStatus, 
+@@ -285,7 +285,7 @@ export async function createSale(data: {
+       }
+ 
+       return sale;
+-    });
++    }, TRANSACTION_OPTIONS);
+ 
+     safeRevalidate("/sales");
+     safeRevalidate("/products");
+@@ -383,7 +383,7 @@ export async function updateSalePaymentStatus(id: string, newStatus: PaymentStat
+         where: { id },
+         include: { product: true, items: { include: { product: true } } },
+       });
+-    });
++    }, TRANSACTION_OPTIONS);
+ 
+     safeRevalidate("/sales");
+     safeRevalidate("/finances");
+@@ -599,7 +599,7 @@ export async function updateSale(
+       }
+ 
+       return sale;
+-    });
++    }, TRANSACTION_OPTIONS);
+ 
+     safeRevalidate("/sales");
+     safeRevalidate("/products");
+@@ -645,7 +645,7 @@ export async function deleteSale(id: string) {
+       await tx.sale.delete({
+         where: { id },
+       });
+-    });
++    }, TRANSACTION_OPTIONS);
+ 
+     safeRevalidate("/sales");
+     safeRevalidate("/products");
+@@ -796,7 +796,7 @@ export async function restockRawMaterial(data: {
+       });
+ 
+       return restock;
+-    });
++    }, TRANSACTION_OPTIONS);
+ 
+     safeRevalidate("/raw-materials");
+     safeRevalidate("/finances");
+@@ -863,7 +863,7 @@ export async function saveRecipe(
+           })),
+         });
+       }
+-    });
++    }, TRANSACTION_OPTIONS);
+ 
+     safeRevalidate("/batch-production");
+     return { success: true };
+@@ -927,7 +927,7 @@ export async function produceBatch(data: {
+       });
+ 
+       return { batchLog, updatedProduct };
+-    });
++    }, TRANSACTION_OPTIONS);
+ 
+     safeRevalidate("/products");
+     safeRevalidate("/raw-materials");
+@@ -1044,7 +1044,7 @@ export async function produceBatchV2(data: {
+       });
+ 
+       return { batchLog, totalMl, oilNeeded, ethanolNeeded, bottlesProduced, macerationDays };
+-    });
++    }, TRANSACTION_OPTIONS);
+ 
+     safeRevalidate("/products");
+     safeRevalidate("/raw-materials");
+@@ -1281,7 +1281,7 @@ export async function createMacerationBatch(data: {
+       });
+ 
+       return macerationBatch;
+-    });
++    }, TRANSACTION_OPTIONS);
+ 
+     safeRevalidate("/maceration");
+     safeRevalidate("/");
+@@ -1317,7 +1317,7 @@ export async function addMacerationToStock(id: string) {
+       });
+ 
+       return updatedMaceration;
+-    });
++    }, TRANSACTION_OPTIONS);
+ 
+     safeRevalidate("/maceration");
+     safeRevalidate("/products");
+@@ -1351,7 +1351,7 @@ export async function extendMaceration(id: string, newEndDate: string) {
+       });
+ 
+       return updatedMaceration;
+-    });
++    }, TRANSACTION_OPTIONS);
+ 
+     safeRevalidate("/maceration");
+     safeRevalidate("/");
+diff --git a/app/bank-actions.ts b/app/bank-actions.ts
+index eecd022..566e238 100644
+--- a/app/bank-actions.ts
++++ b/app/bank-actions.ts
+@@ -1,6 +1,6 @@
+ "use server";
+ 
+-import { prisma } from "@/lib/prisma";
++import { prisma, TRANSACTION_OPTIONS } from "@/lib/prisma";
+ import { revalidatePath } from "next/cache";
+ import { Partner, AccountType, TxnType, ExpenseCategory, Prisma } from "@prisma/client";
+ import {
+@@ -32,10 +32,20 @@ export async function getCurrentPKTYearMonth() {
+ // ACCOUNT INITIALIZATION & GETTERS
+ // ==========================================
+ 
+-export async function getOrCreateDefaultAccounts(tx: any = prisma) {
+-  let business = await tx.account.findFirst({
+-    where: { type: AccountType.BUSINESS, partner: null },
++export async function getOrCreateDefaultAccounts(tx: Prisma.TransactionClient | typeof prisma = prisma) {
++  const accounts = await tx.account.findMany({
++    where: {
++      OR: [
++        { type: AccountType.BUSINESS, partner: null },
++        { type: AccountType.PARTNER, partner: Partner.BADAR },
++        { type: AccountType.PARTNER, partner: Partner.HASHIR },
++      ],
++    },
+   });
++
++  let business = accounts.find(
++    (a) => a.type === AccountType.BUSINESS && a.partner === null
++  );
+   if (!business) {
+     business = await tx.account.create({
+       data: {
+@@ -47,9 +57,9 @@ export async function getOrCreateDefaultAccounts(tx: any = prisma) {
+     });
+   }
+ 
+-  let badar = await tx.account.findFirst({
+-    where: { type: AccountType.PARTNER, partner: Partner.BADAR },
+-  });
++  let badar = accounts.find(
++    (a) => a.type === AccountType.PARTNER && a.partner === Partner.BADAR
++  );
+   if (!badar) {
+     badar = await tx.account.create({
+       data: {
+@@ -61,9 +71,9 @@ export async function getOrCreateDefaultAccounts(tx: any = prisma) {
+     });
+   }
+ 
+-  let hashir = await tx.account.findFirst({
+-    where: { type: AccountType.PARTNER, partner: Partner.HASHIR },
+-  });
++  let hashir = accounts.find(
++    (a) => a.type === AccountType.PARTNER && a.partner === Partner.HASHIR
++  );
+   if (!hashir) {
+     hashir = await tx.account.create({
+       data: {
+@@ -109,7 +119,7 @@ export async function recordCapitalContribution(data: {
+           occurred_at,
+         },
+       });
+-    });
++    }, TRANSACTION_OPTIONS);
+ 
+     safeRevalidate("/finances");
+     safeRevalidate("/");
+@@ -165,7 +175,7 @@ export async function recordExpense(data: {
+           occurred_at,
+         },
+       });
+-    });
++    }, TRANSACTION_OPTIONS);
+ 
+     safeRevalidate("/finances");
+     safeRevalidate("/");
+@@ -257,7 +267,7 @@ export async function recordProfitWithdrawal(data: {
+           occurred_at,
+         },
+       });
+-    });
++    }, TRANSACTION_OPTIONS);
+ 
+     safeRevalidate("/finances");
+     safeRevalidate("/");
+@@ -284,7 +294,7 @@ export async function updatePartnerShares(shares: { partner: Partner; percentage
+           data: { share_percentage: Number(item.percentage) },
+         });
+       }
+-    });
++    }, TRANSACTION_OPTIONS);
+ 
+     safeRevalidate("/finances");
+     return { success: true };
+@@ -410,7 +420,7 @@ export async function recordLoanRepayment(data: {
+           },
+         });
+       }
+-    });
++    }, TRANSACTION_OPTIONS);
+ 
+     safeRevalidate("/finances");
+     safeRevalidate("/");
+diff --git a/lib/prisma.ts b/lib/prisma.ts
+index 4948926..37f8d44 100644
+--- a/lib/prisma.ts
++++ b/lib/prisma.ts
+@@ -10,4 +10,9 @@ export const prisma =
+     log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
+   });
+ 
++export const TRANSACTION_OPTIONS = {
++  maxWait: 5000,
++  timeout: 15000,
++} as const;
++
+ if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+-- 
+2.39.5
+
+
+From 975b9af84e25d353ead1e6cde82639cf143b8b37 Mon Sep 17 00:00:00 2001
+From: Nod <nod@nod.local>
+Date: Wed, 18 Nov 2026 14:22:14 +0500
+Subject: [PATCH 2/2] feat(dashboard): show business cash balance on dashboard
+
+---
+ app/bank-actions.ts    | 14 ++++++++++++++
+ app/page.tsx           | 16 ++++++++++------
+ docs/architecture.md   |  2 +-
+ docs/finance-system.md |  1 +
+ 4 files changed, 26 insertions(+), 7 deletions(-)
+
+diff --git a/app/bank-actions.ts b/app/bank-actions.ts
+index 566e238..bed441f 100644
+--- a/app/bank-actions.ts
++++ b/app/bank-actions.ts
+@@ -435,6 +435,20 @@ export async function recordLoanRepayment(data: {
+ // METRICS & REPORTING
+ // ==========================================
+ 
++export async function getBusinessCash(): Promise<number> {
++  try {
++    const { business } = await getOrCreateDefaultAccounts();
++    const [bizInflows, bizOutflows] = await Promise.all([
++      prisma.txnEntry.aggregate({ where: { to_id: business.id }, _sum: { amount: true } }),
++      prisma.txnEntry.aggregate({ where: { from_id: business.id }, _sum: { amount: true } }),
++    ]);
++    return Number(bizInflows._sum.amount || 0) - Number(bizOutflows._sum.amount || 0);
++  } catch (error) {
++    console.error("Error fetching business cash balance:", error);
++    return 0;
++  }
++}
++
+ export async function getBankMetrics(params?: { year?: number; month?: number; isAllTime?: boolean }) {
+   try {
+     const { business, badar, hashir } = await getOrCreateDefaultAccounts();
+diff --git a/app/page.tsx b/app/page.tsx
+index b00e120..4d9f362 100644
+--- a/app/page.tsx
++++ b/app/page.tsx
+@@ -1,5 +1,6 @@
+ import Link from "next/link";
+ import { getDashboardMetrics } from "./actions";
++import { getBusinessCash } from "./bank-actions";
+ import {
+   formatPKR,
+   formatDate,
+@@ -7,7 +8,7 @@ import {
+   PAYMENT_OPTION_LABELS,
+ } from "@/lib/utils";
+ import {
+-  DollarSign,
++  Wallet,
+   Clock,
+   AlertTriangle,
+   MessageSquare,
+@@ -31,7 +32,10 @@ function StatIcon({ children }: { children: React.ReactNode }) {
+ }
+ 
+ export default async function DashboardPage() {
+-  const metrics = await getDashboardMetrics();
++  const [metrics, businessCash] = await Promise.all([
++    getDashboardMetrics(),
++    getBusinessCash(),
++  ]);
+ 
+   return (
+     <div className="space-y-6">
+@@ -65,14 +69,14 @@ export default async function DashboardPage() {
+         <div className="card">
+           <div className="flex justify-between items-start gap-4">
+             <div>
+-              <p className="eyebrow">Total Revenue</p>
++              <p className="eyebrow">Business Cash</p>
+               <h3 className="text-h3 tabular-nums mt-3">
+-                {formatPKR(metrics.totalRevenue)}
++                {formatPKR(businessCash)}
+               </h3>
+-              <p className="text-mute text-xs mt-1">Received &amp; Cleared</p>
++              <p className="text-mute text-xs mt-1">Liquid cash in company wallet</p>
+             </div>
+             <StatIcon>
+-              <DollarSign className="w-4 h-4" />
++              <Wallet className="w-4 h-4" />
+             </StatIcon>
+           </div>
+         </div>
+diff --git a/docs/architecture.md b/docs/architecture.md
+index 2d9cec6..001f935 100644
+--- a/docs/architecture.md
++++ b/docs/architecture.md
+@@ -213,7 +213,7 @@ sequenceDiagram
+ | **Capital & Drawings** | `recordCapitalContribution`, `recordProfitWithdrawal` |
+ | **Operating Costs** | `recordExpense` (with `ExpenseCategory` support) |
+ | **Financing & Debt** | `recordLoanDisbursement`, `recordLoanRepayment` |
+-| **Reporting & Ledger** | `getBankMetrics` (supports month/year and `isAllTime`), `getLedger` (paginated audit log), `getCurrentPKTYearMonth` |
++| **Reporting & Ledger** | `getBankMetrics` (supports month/year and `isAllTime`), `getBusinessCash`, `getLedger` (paginated audit log), `getCurrentPKTYearMonth` |
+ 
+ Transaction-backed (stock & ledger safe) actions: `createSale`, `updateSale`, `updateSalePaymentStatus`, `deleteSale`, `restockRawMaterial`, `produceBatch`, `produceBatchV2`, `createMacerationBatch`, `addMacerationToStock`, `extendMaceration`, `saveRecipe`, `recordCapitalContribution`, `recordExpense`, `recordProfitWithdrawal`, `recordLoanDisbursement`, `recordLoanRepayment`.
+ 
+diff --git a/docs/finance-system.md b/docs/finance-system.md
+index 07240e6..7757444 100644
+--- a/docs/finance-system.md
++++ b/docs/finance-system.md
+@@ -371,6 +371,7 @@ A sale for 5,000 goes `PAYED` → `REFUNDED`:
+ | `recordLoanDisbursement({ lender, amount, notes, date })` | Debt financing inflow into `BUSINESS` account |
+ | `recordLoanRepayment({ lender, principalAmount, interestAmount, notes, date })` | Guarded by `businessCash`; posts `LOAN_REPAYMENT` for principal and `EXPENSE (BANK_INTEREST_FEES)` for interest |
+ | `getBankMetrics({ year, month, isAllTime })` | Period profit + revenue + expenses + balances + loans + per-partner earned/withdrawn/available + stock valuation + pending receivables |
++| `getBusinessCash()` | Returns liquid cash balance (`inflows - outflows`) in the business account derived from immutable `TxnEntry` records |
+ | `getLedger({ page, limit, type, partner, category, startDate, endDate })` | Paginated, filterable transaction audit log |
+ 
+ ### 9.3 Hooks — inside `app/actions.ts` `$transaction` blocks
+-- 
+2.39.5
+

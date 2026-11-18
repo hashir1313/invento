@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { prisma, TRANSACTION_OPTIONS } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { 
   PaymentStatus, 
@@ -361,7 +361,7 @@ export async function createSale(data: {
       }
 
       return sale;
-    });
+    }, TRANSACTION_OPTIONS);
 
     safeRevalidate("/sales");
     safeRevalidate("/products");
@@ -459,7 +459,7 @@ export async function updateSalePaymentStatus(id: string, newStatus: PaymentStat
         where: { id },
         include: { product: true, items: { include: { product: true } } },
       });
-    });
+    }, TRANSACTION_OPTIONS);
 
     safeRevalidate("/sales");
     safeRevalidate("/finances");
@@ -675,7 +675,7 @@ export async function updateSale(
       }
 
       return sale;
-    });
+    }, TRANSACTION_OPTIONS);
 
     safeRevalidate("/sales");
     safeRevalidate("/products");
@@ -721,7 +721,7 @@ export async function deleteSale(id: string) {
       await tx.sale.delete({
         where: { id },
       });
-    });
+    }, TRANSACTION_OPTIONS);
 
     safeRevalidate("/sales");
     safeRevalidate("/products");
@@ -872,7 +872,7 @@ export async function restockRawMaterial(data: {
       });
 
       return restock;
-    });
+    }, TRANSACTION_OPTIONS);
 
     safeRevalidate("/raw-materials");
     safeRevalidate("/finances");
@@ -939,7 +939,7 @@ export async function saveRecipe(
           })),
         });
       }
-    });
+    }, TRANSACTION_OPTIONS);
 
     safeRevalidate("/batch-production");
     return { success: true };
@@ -1003,7 +1003,7 @@ export async function produceBatch(data: {
       });
 
       return { batchLog, updatedProduct };
-    });
+    }, TRANSACTION_OPTIONS);
 
     safeRevalidate("/products");
     safeRevalidate("/raw-materials");
@@ -1120,7 +1120,7 @@ export async function produceBatchV2(data: {
       });
 
       return { batchLog, totalMl, oilNeeded, ethanolNeeded, bottlesProduced, macerationDays };
-    });
+    }, TRANSACTION_OPTIONS);
 
     safeRevalidate("/products");
     safeRevalidate("/raw-materials");
@@ -1603,7 +1603,7 @@ export async function createMacerationBatch(data: {
       });
 
       return macerationBatch;
-    });
+    }, TRANSACTION_OPTIONS);
 
     safeRevalidate("/maceration");
     safeRevalidate("/");
@@ -1647,7 +1647,7 @@ export async function addMacerationToStock(id: string) {
       });
 
       return updatedMaceration;
-    });
+    }, TRANSACTION_OPTIONS);
 
     safeRevalidate("/maceration");
     safeRevalidate("/products");
@@ -1682,7 +1682,7 @@ export async function extendMaceration(id: string, newEndDate: string) {
       });
 
       return updatedMaceration;
-    });
+    }, TRANSACTION_OPTIONS);
 
     safeRevalidate("/maceration");
     safeRevalidate("/");

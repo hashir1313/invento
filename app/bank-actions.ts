@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { prisma, TRANSACTION_OPTIONS } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { Partner, AccountType, TxnType, ExpenseCategory, Prisma } from "@prisma/client";
 import {
@@ -32,10 +32,20 @@ export async function getCurrentPKTYearMonth() {
 // ACCOUNT INITIALIZATION & GETTERS
 // ==========================================
 
-export async function getOrCreateDefaultAccounts(tx: any = prisma) {
-  let business = await tx.account.findFirst({
-    where: { type: AccountType.BUSINESS, partner: null },
+export async function getOrCreateDefaultAccounts(tx: Prisma.TransactionClient | typeof prisma = prisma) {
+  const accounts = await tx.account.findMany({
+    where: {
+      OR: [
+        { type: AccountType.BUSINESS, partner: null },
+        { type: AccountType.PARTNER, partner: Partner.BADAR },
+        { type: AccountType.PARTNER, partner: Partner.HASHIR },
+      ],
+    },
   });
+
+  let business = accounts.find(
+    (a) => a.type === AccountType.BUSINESS && a.partner === null
+  );
   if (!business) {
     business = await tx.account.create({
       data: {
@@ -47,9 +57,9 @@ export async function getOrCreateDefaultAccounts(tx: any = prisma) {
     });
   }
 
-  let badar = await tx.account.findFirst({
-    where: { type: AccountType.PARTNER, partner: Partner.BADAR },
-  });
+  let badar = accounts.find(
+    (a) => a.type === AccountType.PARTNER && a.partner === Partner.BADAR
+  );
   if (!badar) {
     badar = await tx.account.create({
       data: {
@@ -61,9 +71,9 @@ export async function getOrCreateDefaultAccounts(tx: any = prisma) {
     });
   }
 
-  let hashir = await tx.account.findFirst({
-    where: { type: AccountType.PARTNER, partner: Partner.HASHIR },
-  });
+  let hashir = accounts.find(
+    (a) => a.type === AccountType.PARTNER && a.partner === Partner.HASHIR
+  );
   if (!hashir) {
     hashir = await tx.account.create({
       data: {
@@ -109,7 +119,7 @@ export async function recordCapitalContribution(data: {
           occurred_at,
         },
       });
-    });
+    }, TRANSACTION_OPTIONS);
 
     safeRevalidate("/finances");
     safeRevalidate("/");
@@ -165,7 +175,7 @@ export async function recordExpense(data: {
           occurred_at,
         },
       });
-    });
+    }, TRANSACTION_OPTIONS);
 
     safeRevalidate("/finances");
     safeRevalidate("/");
@@ -257,7 +267,7 @@ export async function recordProfitWithdrawal(data: {
           occurred_at,
         },
       });
-    });
+    }, TRANSACTION_OPTIONS);
 
     safeRevalidate("/finances");
     safeRevalidate("/");
@@ -284,7 +294,7 @@ export async function updatePartnerShares(shares: { partner: Partner; percentage
           data: { share_percentage: Number(item.percentage) },
         });
       }
-    });
+    }, TRANSACTION_OPTIONS);
 
     safeRevalidate("/finances");
     return { success: true };
@@ -410,7 +420,7 @@ export async function recordLoanRepayment(data: {
           },
         });
       }
-    });
+    }, TRANSACTION_OPTIONS);
 
     safeRevalidate("/finances");
     safeRevalidate("/");
@@ -424,6 +434,20 @@ export async function recordLoanRepayment(data: {
 // ==========================================
 // METRICS & REPORTING
 // ==========================================
+
+export async function getBusinessCash(): Promise<number> {
+  try {
+    const { business } = await getOrCreateDefaultAccounts();
+    const [bizInflows, bizOutflows] = await Promise.all([
+      prisma.txnEntry.aggregate({ where: { to_id: business.id }, _sum: { amount: true } }),
+      prisma.txnEntry.aggregate({ where: { from_id: business.id }, _sum: { amount: true } }),
+    ]);
+    return Number(bizInflows._sum.amount || 0) - Number(bizOutflows._sum.amount || 0);
+  } catch (error) {
+    console.error("Error fetching business cash balance:", error);
+    return 0;
+  }
+}
 
 export async function getBankMetrics(params?: { year?: number; month?: number; isAllTime?: boolean }) {
   try {

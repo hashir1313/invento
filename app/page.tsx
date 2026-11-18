@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getDashboardMetrics } from "./actions";
+import { getBusinessCash } from "./bank-actions";
 import {
   formatPKR,
   formatDate,
@@ -7,7 +8,7 @@ import {
   PAYMENT_OPTION_LABELS,
 } from "@/lib/utils";
 import {
-  DollarSign,
+  Wallet,
   Clock,
   AlertTriangle,
   MessageSquare,
@@ -31,7 +32,10 @@ function StatIcon({ children }: { children: React.ReactNode }) {
 }
 
 export default async function DashboardPage() {
-  const metrics = await getDashboardMetrics();
+  const [metrics, businessCash] = await Promise.all([
+    getDashboardMetrics(),
+    getBusinessCash(),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -65,14 +69,14 @@ export default async function DashboardPage() {
         <div className="card">
           <div className="flex justify-between items-start gap-4">
             <div>
-              <p className="eyebrow">Total Revenue</p>
+              <p className="eyebrow">Business Cash</p>
               <h3 className="text-h3 tabular-nums mt-3">
-                {formatPKR(metrics.totalRevenue)}
+                {formatPKR(businessCash)}
               </h3>
-              <p className="text-mute text-xs mt-1">Received &amp; Cleared</p>
+              <p className="text-mute text-xs mt-1">Liquid cash in company wallet</p>
             </div>
             <StatIcon>
-              <DollarSign className="w-4 h-4" />
+              <Wallet className="w-4 h-4" />
             </StatIcon>
           </div>
         </div>

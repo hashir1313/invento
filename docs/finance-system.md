@@ -371,6 +371,7 @@ A sale for 5,000 goes `PAYED` → `REFUNDED`:
 | `recordLoanDisbursement({ lender, amount, notes, date })` | Debt financing inflow into `BUSINESS` account |
 | `recordLoanRepayment({ lender, principalAmount, interestAmount, notes, date })` | Guarded by `businessCash`; posts `LOAN_REPAYMENT` for principal and `EXPENSE (BANK_INTEREST_FEES)` for interest |
 | `getBankMetrics({ year, month, isAllTime })` | Period profit + revenue + expenses + balances + loans + per-partner earned/withdrawn/available + stock valuation + pending receivables |
+| `getBusinessCash()` | Returns liquid cash balance (`inflows - outflows`) in the business account derived from immutable `TxnEntry` records |
 | `getLedger({ page, limit, type, partner, category, startDate, endDate })` | Paginated, filterable transaction audit log |
 
 ### 9.3 Hooks — inside `app/actions.ts` `$transaction` blocks
