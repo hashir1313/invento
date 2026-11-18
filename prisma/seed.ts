@@ -1,4 +1,4 @@
-import { PrismaClient, MaterialCategory, UnitOfMeasure, PaymentStatus, PaymentOption } from "@prisma/client";
+import { PrismaClient, MaterialCategory, UnitOfMeasure } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -80,7 +80,7 @@ async function main() {
 
   // 2. Seed Sample Perfume Products
   console.log("  -> Seeding sample perfume products...");
-  const p1 = await prisma.product.create({
+  await prisma.product.create({
     data: {
       name: "Velvet Oud",
       perfume_quantity_ml: 50,
@@ -91,7 +91,7 @@ async function main() {
     },
   });
 
-  const p2 = await prisma.product.create({
+  await prisma.product.create({
     data: {
       name: "Santal Dream",
       perfume_quantity_ml: 50,
@@ -102,7 +102,7 @@ async function main() {
     },
   });
 
-  const p3 = await prisma.product.create({
+  await prisma.product.create({
     data: {
       name: "Midnight Bloom",
       perfume_quantity_ml: 100,

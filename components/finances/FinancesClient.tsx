@@ -3,12 +3,9 @@
 import { useState } from "react";
 import { getBankMetrics } from "@/app/bank-actions";
 import { formatPKR, EXPENSE_CATEGORY_LABELS } from "@/lib/utils";
-import { Partner } from "@prisma/client";
 import {
-  DollarSign,
   TrendingUp,
   TrendingDown,
-  Users,
   Wallet,
   Receipt,
   Plus,
@@ -20,7 +17,6 @@ import {
   AlertTriangle,
   Percent,
   Calendar,
-  Layers,
   Loader2,
   Landmark,
 } from "lucide-react";

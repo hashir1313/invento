@@ -10,9 +10,6 @@ import {
   Trash2, 
   Pencil,
   Sparkles, 
-  Layers, 
-  Tag, 
-  Check, 
   X,
   Droplets
 } from "lucide-react";

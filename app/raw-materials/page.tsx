@@ -183,7 +183,7 @@ export default function RawMaterialsPage() {
           <p className="eyebrow mb-3">Inventory / Raw Materials</p>
           <h1 className="text-h2 text-ink">Raw Materials Inventory & Restock Hub</h1>
           <p className="text-body text-base leading-6 mt-3 max-w-xl">
-            Track fragrance oils, ethanol, bottles, stickers, boxes, and cards. Log incoming shipments ("Got Supply").
+            Track fragrance oils, ethanol, bottles, stickers, boxes, and cards. Log incoming shipments (&quot;Got Supply&quot;).
           </p>
         </div>
 

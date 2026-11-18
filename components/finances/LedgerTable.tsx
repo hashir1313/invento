@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { getLedger } from "@/app/bank-actions";
-import { formatPKR, formatDate, TXN_TYPE_LABELS, TXN_TYPE_BADGES, EXPENSE_CATEGORY_LABELS } from "@/lib/utils";
+import { formatPKR, formatDate, TXN_TYPE_LABELS, EXPENSE_CATEGORY_LABELS } from "@/lib/utils";
 import { TxnType, ExpenseCategory } from "@prisma/client";
 import { ArrowDownLeft, ArrowUpRight, Filter, ChevronLeft, ChevronRight, FileText } from "lucide-react";
 
@@ -40,9 +40,6 @@ export function LedgerTable({ refreshToken }: LedgerTableProps) {
   }
 
   function renderFlowBadge(entry: any) {
-    const isOutflow = entry.from && entry.from.type === "BUSINESS";
-    const isInflow = entry.to && entry.to.type === "BUSINESS";
-
     if (entry.type === "CAPITAL_CONTRIBUTION") {
       return (
         <span className="inline-flex items-center gap-1 text-xs font-semibold text-link font-mono tabular-nums">

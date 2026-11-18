@@ -51,13 +51,15 @@ export default function CalendarDatePicker({
   const [viewYear, setViewYear] = useState(selected.getFullYear());
   const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
     if (value) {
       const d = parseDateStr(value);
       setViewMonth(d.getMonth());
       setViewYear(d.getFullYear());
     }
-  }, [value]);
+  }
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {

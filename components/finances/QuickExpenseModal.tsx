@@ -4,7 +4,7 @@ import { useState } from "react";
 import { recordExpense } from "@/app/bank-actions";
 import { EXPENSE_CATEGORY_LABELS } from "@/lib/utils";
 import { ExpenseCategory, Partner } from "@prisma/client";
-import { X, Plus, Receipt, AlertCircle, CheckCircle2 } from "lucide-react";
+import { X, Receipt, AlertCircle } from "lucide-react";
 
 interface QuickExpenseModalProps {
   isOpen: boolean;

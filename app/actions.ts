@@ -906,7 +906,7 @@ export async function getRecipes() {
         raw_material: true,
       },
     });
-  } catch (error) {
+  } catch {
     return [];
   }
 }
@@ -917,7 +917,7 @@ export async function getRecipesForProduct(productId: string) {
       where: { product_id: productId },
       include: { raw_material: true },
     });
-  } catch (error) {
+  } catch {
     return [];
   }
 }
